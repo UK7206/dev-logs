@@ -2,14 +2,22 @@ import React, { useState } from 'react';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import MockStudio from './MockStudio';
 import AutoTestGenerator from './AutoTestGenerator';
-import { X, Activity, Server, Code } from 'lucide-react';
+import ExecutionEngine from './ExecutionEngine';
+import EnvironmentProfiles from './EnvironmentProfiles';
+import WebhookSettings from './WebhookSettings';
+import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
 }
 
 export default function InsightEngineLayout({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'mock' | 'tests'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook'>('analytics');
+  const [shouldCrash, setShouldCrash] = useState(false);
+
+  if (shouldCrash) {
+    throw new Error('Simulated Application Crash for DevLogsErrorBoundary');
+  }
 
   return (
     <div className="fixed inset-0 z-[99999] bg-black flex flex-col font-sans">
@@ -54,27 +62,74 @@ export default function InsightEngineLayout({ onClose }: Props) {
             >
               <Code className="w-4 h-4" /> Auto-Tests
             </button>
+            <button
+              onClick={() => setActiveTab('exec')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'exec' 
+                  ? 'bg-gray-800 text-white shadow' 
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+              }`}
+            >
+              <TerminalSquare className="w-4 h-4 text-green-400" /> Exec Engine
+            </button>
+            <button
+              onClick={() => setActiveTab('env')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'env' 
+                  ? 'bg-gray-800 text-white shadow' 
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+              }`}
+            >
+              <Globe className="w-4 h-4 text-purple-400" /> Env Profiles
+            </button>
+            <button
+              onClick={() => setActiveTab('webhook')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'webhook' 
+                  ? 'bg-gray-800 text-white shadow' 
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+              }`}
+            >
+              <Webhook className="w-4 h-4 text-indigo-400" /> Webhooks
+            </button>
           </div>
         </div>
 
-        <button 
-          onClick={onClose}
-          className="p-2 bg-gray-900 hover:bg-red-500/20 hover:text-red-400 text-gray-400 rounded-lg transition-colors group"
-        >
-          <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShouldCrash(true)}
+            className="p-2 text-xs font-bold bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors border border-red-500/30"
+          >
+            Test Crash
+          </button>
+          <button 
+            onClick={onClose}
+            className="p-2 bg-gray-900 hover:bg-red-500/20 hover:text-red-400 text-gray-400 rounded-lg transition-colors group"
+          >
+            <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden relative bg-gray-900">
-        <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'analytics' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+      <div className="flex-1 overflow-auto bg-gray-900 min-h-0">
+        <div style={{ display: activeTab === 'analytics' ? 'block' : 'none', height: '100%' }}>
           <AnalyticsDashboard />
         </div>
-        <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'mock' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+        <div style={{ display: activeTab === 'mock' ? 'block' : 'none', height: '100%' }}>
           <MockStudio />
         </div>
-        <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'tests' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+        <div style={{ display: activeTab === 'tests' ? 'block' : 'none', height: '100%' }}>
           <AutoTestGenerator />
+        </div>
+        <div style={{ display: activeTab === 'exec' ? 'block' : 'none', height: '100%' }}>
+          <ExecutionEngine />
+        </div>
+        <div style={{ display: activeTab === 'env' ? 'block' : 'none', height: '100%' }}>
+          <EnvironmentProfiles />
+        </div>
+        <div style={{ display: activeTab === 'webhook' ? 'block' : 'none', height: '100%' }}>
+          <WebhookSettings />
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Camera,
   Send,
@@ -20,7 +20,7 @@ import {
   File as FileIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createRequest, uploadAttachment } from '../lib/api';
+import { fetchRequests, createRequest, uploadAttachment } from '../lib/api';
 import type { Priority, Category } from '../types';
 
 interface SubmitTabProps {
@@ -108,6 +108,30 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
   const consoleErrors = ((window as any).__consoleBuffer as ConsoleEntry[] | undefined || []).filter((e) => e.level === 'error').length;
   const consoleWarnings = ((window as any).__consoleBuffer as ConsoleEntry[] | undefined || []).filter((e) => e.level === 'warn').length;
   const pageUrl = window.location.pathname;
+
+  const { data: requests = [] } = useQuery({
+    queryKey: ['requests'],
+    queryFn: () => fetchRequests(),
+  });
+
+  const similarRequests = React.useMemo(() => {
+    if (description.trim().length < 15) return [];
+    const words = description.toLowerCase().split(/\W+/).filter(w => w.length > 4);
+    if (words.length === 0) return [];
+
+    return requests
+      .filter((req) => req.status !== 'completed' && req.status !== 'cancelled')
+      .map((req) => {
+        const text = (req.title + ' ' + req.description).toLowerCase();
+        let matches = 0;
+        words.forEach(w => { if (text.includes(w)) matches++; });
+        return { req, score: matches / words.length };
+      })
+      .filter((x) => x.score >= 0.4)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2)
+      .map(x => x.req);
+  }, [description, requests]);
 
   const handleCapture = useCallback(async () => {
     setCapturing(true);
@@ -524,6 +548,24 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
             />
           </div>
         </div>
+
+        {/* Deduplication warning */}
+        {similarRequests.length > 0 && (
+          <div className="p-2.5 rounded-lg mb-2" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-yellow-500 mb-1">
+              <AlertTriangle size={12} /> Possible Duplicates Found
+            </div>
+            <ul className="space-y-1">
+              {similarRequests.map(r => (
+                <li key={r.id} className="text-[10px] truncate" style={{ color: '#d97706' }}>
+                  <button onClick={() => onSwitchToRequests(r.id)} className="hover:underline text-left">
+                    {r.id}: {r.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Submit footer */}

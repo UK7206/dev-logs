@@ -83,6 +83,13 @@ export async function deleteRequest(id: string): Promise<void> {
   await request(`/requests/${id}`, { method: 'DELETE' });
 }
 
+export async function suggestFix(id: string): Promise<string> {
+  const data = await request<{ suggestion: string }>(`/requests/${id}/suggest-fix`, {
+    method: 'POST',
+  });
+  return data.suggestion;
+}
+
 // ---------- Checklist ----------
 
 export async function addChecklist(

@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import requestRoutes from './routes/requests.js';
+import systemRoutes from './routes/system.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,15 +31,23 @@ export function broadcastEvent(event: string, data: unknown) {
 // ---------------------------------------------------------------------------
 // Webhook — fire-and-forget POST to configured URL
 // ---------------------------------------------------------------------------
-const WEBHOOK_URL = process.env.DEV_LOGS_WEBHOOK_URL || '';
-
 export async function fireWebhook(event: string, payload: unknown) {
-  if (!WEBHOOK_URL) return;
+  const settingsFile = path.join(__dirname, 'data', 'settings.json');
+  let webhookUrl = process.env.DEV_LOGS_WEBHOOK_URL || '';
   try {
-    await fetch(WEBHOOK_URL, {
+    if (fs.existsSync(settingsFile)) {
+      const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+      if (settings.webhook_url) webhookUrl = settings.webhook_url;
+    }
+  } catch (err) {}
+
+  if (!webhookUrl) return;
+
+  try {
+    await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event, ...( payload as object) }),
+      body: JSON.stringify({ event, ...(payload as object) }),
     });
   } catch (err) {
     console.warn('[dev-logs] Webhook delivery failed:', (err as Error).message);
@@ -96,6 +105,7 @@ app.get('/overlay.js', (_req, res) => {
 
 // Mount API routes
 app.use('/api/requests', requestRoutes);
+app.use('/api/system', systemRoutes);
 
 // Create data directories on startup
 const dataDir = path.join(__dirname, 'data');
@@ -108,7 +118,4 @@ for (const dir of dirs) {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`dev-logs server running on http://localhost:${PORT}`);
-  if (WEBHOOK_URL) {
-    console.log(`[dev-logs] Webhook enabled → ${WEBHOOK_URL}`);
-  }
 });

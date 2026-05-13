@@ -3,6 +3,8 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
+import { execSync } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
 // SSE + webhook helpers (imported lazily to avoid circular at startup)
@@ -115,6 +117,32 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } }); // 25 MB cap
+
+// ---------------------------------------------------------------------------
+// Environment Extractor Helper
+// ---------------------------------------------------------------------------
+function getEnvironmentContext() {
+  const env: Record<string, unknown> = {
+    os: `${os.type()} ${os.release()} (${os.arch()})`,
+    node: process.version,
+    memory_gb: Math.round(os.totalmem() / 1024 / 1024 / 1024),
+  };
+
+  try {
+    const pkgPath = path.join(process.cwd(), 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      env.dependencies = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+    }
+  } catch (e) {}
+
+  try {
+    env.git_branch = execSync('git branch --show-current', { stdio: 'pipe' }).toString().trim();
+    env.git_status = execSync('git status -s', { stdio: 'pipe' }).toString().trim().split('\\n').filter(Boolean);
+  } catch (e) {}
+
+  return env;
+}
 
 // ---------------------------------------------------------------------------
 // GET / — List requests with optional filters + stats
@@ -241,6 +269,11 @@ router.post('/', (req: Request, res: Response) => {
     feedback: null,
     tags: Array.isArray(body.tags) ? body.tags.filter((t: unknown) => typeof t === 'string') : [],
     due_date: body.due_date || null,
+    github_pr: body.github_pr || null,
+    git_branch: body.git_branch || null,
+    estimated_hours: body.estimated_hours || 0,
+    actual_hours: body.actual_hours || 0,
+    environment_context: getEnvironmentContext(),
   };
 
   requests.push(newRequest);
@@ -278,6 +311,7 @@ router.put('/:id', (req: Request, res: Response) => {
   const updatableFields = [
     'title', 'description', 'status', 'priority', 'category',
     'platform', 'submitted_by', 'testing_notes', 'feedback', 'due_date',
+    'github_pr', 'git_branch', 'estimated_hours', 'actual_hours'
   ];
   for (const field of updatableFields) {
     if (body[field] !== undefined && body[field] !== null) {
@@ -584,6 +618,36 @@ router.patch('/:id/completion', (req: Request, res: Response) => {
   );
 
   res.json({ status: 'success', request });
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/suggest-fix — AI Fix Recommender
+// ---------------------------------------------------------------------------
+router.post('/:id/suggest-fix', (req: Request, res: Response) => {
+  const requests = loadRequests();
+  const request = findRequest(requests, req.params.id);
+  if (!request) {
+    res.status(404).json({ status: 'error', detail: `Request ${req.params.id} not found` });
+    return;
+  }
+
+  const desc = request.description as string || '';
+  const errorsMatch = desc.match(/\*\*Console Errors\*\*:\s*(\d+)/);
+  const hasErrors = errorsMatch && parseInt(errorsMatch[1]) > 0;
+  
+  // Mock AI response
+  setTimeout(() => {
+    let suggestion = '';
+    if (hasErrors) {
+      suggestion = `Based on the console errors reported in this ticket, it looks like a runtime exception occurred.\n\n**Suggested Fix:**\n1. Wrap the failing component in an Error Boundary or add a null check.\n2. Verify API responses before accessing properties.\n\n\`\`\`javascript\n// Example fix\nif (!data?.items) {\n  return <FallbackLoader />;\n}\n\`\`\``;
+    } else if (request.category === 'ui-ux' || request.category === 'ui') {
+      suggestion = `This appears to be a styling or layout issue.\n\n**Suggested Fix:**\nCheck the Tailwind/CSS classes on the container. Ensure flex or grid layouts are configured correctly.\n\n\`\`\`html\n<!-- Example fix -->\n<div className="flex items-center justify-center w-full h-full">\n  <Content />\n</div>\n\`\`\``;
+    } else {
+      suggestion = `Based on the description: "${request.title}", here is a general recommendation:\n\n1. Verify the initial state values.\n2. Check the network tab for any failed asynchronous requests.\n3. Add console logs to trace the execution path.\n\n\`\`\`typescript\nconsole.log('[Debug] Current state:', state);\n\`\`\``;
+    }
+
+    res.json({ status: 'success', suggestion });
+  }, 2000);
 });
 
 // ---------------------------------------------------------------------------
