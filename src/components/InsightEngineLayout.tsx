@@ -5,7 +5,8 @@ import AutoTestGenerator from './AutoTestGenerator';
 import ExecutionEngine from './ExecutionEngine';
 import EnvironmentProfiles from './EnvironmentProfiles';
 import WebhookSettings from './WebhookSettings';
-import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook } from 'lucide-react';
+import ApiReplay from './ApiReplay';
+import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -13,7 +14,7 @@ interface Props {
 }
 
 export default function InsightEngineLayout({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook' | 'replay'>('analytics');
   const [shouldCrash, setShouldCrash] = useState(false);
 
   if (shouldCrash) {
@@ -28,6 +29,7 @@ export default function InsightEngineLayout({ onClose }: Props) {
       case 'exec': return <ExecutionEngine />;
       case 'env': return <EnvironmentProfiles />;
       case 'webhook': return <WebhookSettings />;
+      case 'replay': return <ApiReplay />;
       default: return null;
     }
   };
@@ -41,23 +43,24 @@ export default function InsightEngineLayout({ onClose }: Props) {
       className="fixed inset-0 z-[99999] bg-black flex flex-col font-sans"
     >
       {/* Top Navigation Bar */}
-      <div className="bg-gray-950 border-b border-gray-800 p-4 flex justify-between items-center shrink-0">
+      <div className="bg-gray-950 border-b border-gray-800 p-4 flex justify-between items-center shrink-0 overflow-x-auto">
         <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2 text-white font-bold text-xl tracking-wide">
+          <div className="flex items-center gap-2 text-white font-bold text-xl tracking-wide shrink-0">
             <div className="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
               <Activity className="w-5 h-5 text-white" />
             </div>
             Insight Engine
           </div>
 
-          <div className="flex gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800">
+          <div className="flex gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800 shrink-0">
             {[
               { id: 'analytics', icon: Activity, label: 'Analytics', color: '' },
               { id: 'mock', icon: Server, label: 'Mock Studio', color: '' },
               { id: 'tests', icon: Code, label: 'Auto-Tests', color: '' },
               { id: 'exec', icon: TerminalSquare, label: 'Exec Engine', color: 'text-green-400' },
               { id: 'env', icon: Globe, label: 'Env Profiles', color: 'text-purple-400' },
-              { id: 'webhook', icon: Webhook, label: 'Webhooks', color: 'text-indigo-400' }
+              { id: 'webhook', icon: Webhook, label: 'Webhooks', color: 'text-indigo-400' },
+              { id: 'replay', icon: RefreshCcw, label: 'API Replay', color: 'text-orange-400' }
             ].map(tab => (
               <button
                 key={tab.id}

@@ -100,6 +100,8 @@ export interface NetworkEntry {
   duration?: number;
   timestamp: string;
   response?: string;
+  requestHeaders?: Record<string, string>;
+  requestBody?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,16 +161,41 @@ export function installNetworkInterceptor() {
   window.fetch = async (...args) => {
     const startTime = Date.now();
     const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url;
-    const method = (args[1]?.method || 'GET').toUpperCase();
+    const method = (args[1]?.method || (args[0] instanceof Request ? args[0].method : 'GET')).toUpperCase();
 
     if (url.includes('/api/requests') || url.includes('/api/events')) {
       return origFetch(...args);
+    }
+
+    let requestBody = '';
+    const requestHeaders: Record<string, string> = {};
+
+    if (args[0] instanceof Request) {
+      args[0].headers.forEach((v, k) => requestHeaders[k] = v);
+    }
+    
+    if (args[1]) {
+      const init = args[1] as RequestInit;
+      if (init.headers) {
+        if (init.headers instanceof Headers) {
+          init.headers.forEach((v, k) => requestHeaders[k] = v);
+        } else if (Array.isArray(init.headers)) {
+          init.headers.forEach(([k, v]) => requestHeaders[k] = v);
+        } else {
+          Object.entries(init.headers).forEach(([k, v]) => requestHeaders[k] = v as string);
+        }
+      }
+      if (typeof init.body === 'string') {
+        requestBody = init.body;
+      }
     }
 
     const entry: NetworkEntry = {
       method,
       url,
       timestamp: new Date().toISOString(),
+      requestHeaders,
+      requestBody,
     };
 
     buf.push(entry);
@@ -193,12 +220,18 @@ export function installNetworkInterceptor() {
     private _method = 'GET';
     private _url = '';
     private _startTime = 0;
+    private _requestHeaders: Record<string, string> = {};
 
     open(method: string, url: string | URL, ...rest: any[]) {
       this._method = method.toUpperCase();
       this._url = url.toString();
       // @ts-ignore
       return super.open(method, url, ...rest);
+    }
+
+    setRequestHeader(name: string, value: string) {
+      this._requestHeaders[name] = value;
+      super.setRequestHeader(name, value);
     }
 
     send(body?: Document | XMLHttpRequestBodyInit | null) {
@@ -211,6 +244,8 @@ export function installNetworkInterceptor() {
         method: this._method,
         url: this._url,
         timestamp: new Date().toISOString(),
+        requestHeaders: this._requestHeaders,
+        requestBody: typeof body === 'string' ? body : undefined,
       };
 
       buf.push(entry);
