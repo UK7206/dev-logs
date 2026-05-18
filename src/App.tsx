@@ -5,6 +5,7 @@ import DevCapture from './components/DevCapture';
 import KanbanDashboard from './components/KanbanDashboard';
 import InsightEngineLayout from './components/InsightEngineLayout';
 import MultiplayerCursors from './components/MultiplayerCursors';
+import PerformanceHUD from './components/PerformanceHUD';
 import { installConsoleInterceptor, installNetworkInterceptor } from './components/DevCapture';
 
 // Install interceptors on load
@@ -16,6 +17,7 @@ export default function App() {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [kanbanOpen, setKanbanOpen] = useState(false);
   const [insightOpen, setInsightOpen] = useState(false);
+  const [showHUD, setShowHUD] = useState(localStorage.getItem('devLogs_showHUD') !== 'false');
 
   // Listen for custom events
   useEffect(() => {
@@ -28,15 +30,24 @@ export default function App() {
       setPanelOpen(false);
       setInsightOpen(true);
     };
+    const toggleHUD = () => {
+      setShowHUD((prev) => {
+        const next = !prev;
+        localStorage.setItem('devLogs_showHUD', String(next));
+        return next;
+      });
+    };
 
     window.addEventListener('dev-capture:open', togglePanel);
     window.addEventListener('dev-logs:open-kanban', openKanban);
     window.addEventListener('dev-logs:open-insight', openInsight);
+    window.addEventListener('dev-logs:toggle-hud', toggleHUD);
 
     return () => {
       window.removeEventListener('dev-capture:open', togglePanel);
       window.removeEventListener('dev-logs:open-kanban', openKanban);
       window.removeEventListener('dev-logs:open-insight', openInsight);
+      window.removeEventListener('dev-logs:toggle-hud', toggleHUD);
     };
   }, []);
 
@@ -45,6 +56,7 @@ export default function App() {
       <>
         <KanbanDashboard onClose={() => setKanbanOpen(false)} />
         <MultiplayerCursors />
+        {showHUD && <PerformanceHUD />}
       </>
     );
   }
@@ -54,6 +66,7 @@ export default function App() {
       <>
         <InsightEngineLayout onClose={() => setInsightOpen(false)} />
         <MultiplayerCursors />
+        {showHUD && <PerformanceHUD />}
       </>
     );
   }
@@ -61,6 +74,7 @@ export default function App() {
   return (
     <>
       <MultiplayerCursors />
+      {showHUD && <PerformanceHUD />}
       {/* Floating panel */}
       <div data-dev-logs-panel>
         <FloatingPanel

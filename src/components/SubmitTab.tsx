@@ -18,6 +18,8 @@ import {
   FileText,
   Image as ImageIcon,
   File as FileIcon,
+  Video,
+  StopCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchRequests, createRequest, uploadAttachment } from '../lib/api';
@@ -104,6 +106,43 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
+
+  const handleRecordVideo = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      recordedChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        setIsRecording(false);
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const file = new File([blob], `screen-record-${Date.now()}.webm`, { type: 'video/webm' });
+        setFiles(prev => [...prev, file]);
+        toast.success('Video attached to files');
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      toast.info('Screen recording started');
+    } catch (err) {
+      console.error(err);
+      toast.error('Recording cancelled or failed');
+    }
+  };
 
   const consoleErrors = ((window as any).__consoleBuffer as ConsoleEntry[] | undefined || []).filter((e) => e.level === 'error').length;
   const consoleWarnings = ((window as any).__consoleBuffer as ConsoleEntry[] | undefined || []).filter((e) => e.level === 'warn').length;
@@ -245,6 +284,7 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
 
   const getFileIcon = (file: File) => {
     if (file.type.startsWith('image/')) return ImageIcon;
+    if (file.type.startsWith('video/')) return Video;
     if (file.type.startsWith('text/') || file.name.endsWith('.log') || file.name.endsWith('.json') || file.name.endsWith('.csv')) return FileText;
     return FileIcon;
   };
@@ -305,7 +345,7 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
           )}
         </div>
 
-        {/* Screenshot & advanced capture */}
+        {/* Capture tools */}
         <div className="flex gap-1.5">
           <button
             onClick={handleCapture}
@@ -326,6 +366,23 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
               <><Camera size={13} /> Screenshot</>
             )}
           </button>
+
+          <button
+            onClick={handleRecordVideo}
+            className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: isRecording ? 'rgba(239,68,68,0.1)' : 'rgba(15,23,42,0.7)',
+              border: `1px solid ${isRecording ? 'rgba(239,68,68,0.3)' : 'rgba(51,65,85,0.5)'}`,
+              color: isRecording ? '#ef4444' : '#94a3b8',
+            }}
+          >
+            {isRecording ? (
+              <><StopCircle size={13} className="animate-pulse" /> Stop Rec</>
+            ) : (
+              <><Video size={13} /> Record</>
+            )}
+          </button>
+
           <button
             onClick={onOpenCapture}
             className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
