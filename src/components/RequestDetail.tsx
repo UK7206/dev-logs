@@ -115,7 +115,7 @@ export default function RequestDetail({ requestId, onBack }: RequestDetailProps)
 
   const [newChecklistText, setNewChecklistText] = useState('');
   const [newCommentText, setNewCommentText] = useState('');
-  const [newCommentAuthor, setNewCommentAuthor] = useState('');
+  const [newCommentAuthor, setNewCommentAuthor] = useState(localStorage.getItem('devLogs_author') || '');
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -533,7 +533,12 @@ export default function RequestDetail({ requestId, onBack }: RequestDetailProps)
           ))}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); if (newCommentText.trim()) commentMutation.mutate(); }} className="mt-2 space-y-1">
-          <input type="text" value={newCommentAuthor} onChange={(e) => setNewCommentAuthor(e.target.value)}
+          <input type="text" value={newCommentAuthor} onChange={(e) => {
+            const val = e.target.value;
+            setNewCommentAuthor(val);
+            if (val.trim()) localStorage.setItem('devLogs_author', val.trim());
+            else localStorage.removeItem('devLogs_author');
+          }}
             placeholder="Name (optional)" className="w-full px-2.5 py-1.5 rounded-lg text-[12px] outline-none" style={inputStyle} />
           <div className="flex gap-1.5">
             <textarea value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)}

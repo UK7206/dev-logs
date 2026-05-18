@@ -178,7 +178,7 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
         description: contextBlock,
         priority,
         category: (category === 'ui-ux' ? 'ui' : category) as Category,
-        submitted_by: 'dev-capture',
+        submitted_by: localStorage.getItem('devLogs_author') || 'dev-team',
         platform: window.location.hostname,
         tags,
       };

@@ -36,43 +36,51 @@ function ensureDirs(): void {
   }
 }
 
+import { db } from '../db.js';
+
 function loadRequests(): Record<string, unknown>[] {
   ensureDirs();
-  if (!fs.existsSync(REQUESTS_FILE)) {
-    fs.writeFileSync(REQUESTS_FILE, '[]');
-    return [];
-  }
-  try {
-    const raw = fs.readFileSync(REQUESTS_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+  const rows = db.prepare('SELECT data FROM requests ORDER BY created_at DESC').all() as { data: string }[];
+  return rows.map(r => JSON.parse(r.data));
 }
 
+function findRequest(requests: Record<string, unknown>[], id: string) {
+  const row = db.prepare('SELECT data FROM requests WHERE id = ?').get(id) as { data: string } | undefined;
+  if (!row) return null;
+  return JSON.parse(row.data);
+}
+
+// saveRequests now accepts the FULL array and upserts them. 
+// We optimize it slightly by just replacing it, or we can just use it for legacy compatibility
 function saveRequests(requests: Record<string, unknown>[]): void {
   ensureDirs();
-  fs.writeFileSync(REQUESTS_FILE, JSON.stringify(requests, null, 2));
+  const insert = db.prepare('INSERT OR REPLACE INTO requests (id, status, priority, category, created_at, updated_at, data) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const insertMany = db.transaction((reqs: any[]) => {
+    for (const req of reqs) {
+      insert.run(req.id, req.status, req.priority, req.category, req.created_at, req.updated_at, JSON.stringify(req));
+    }
+  });
+  insertMany(requests);
+}
+
+// We also need a fast way to update a single request
+function updateSingleRequest(req: Record<string, unknown>): void {
+  const stmt = db.prepare('UPDATE requests SET status = ?, priority = ?, category = ?, updated_at = ?, data = ? WHERE id = ?');
+  stmt.run(req.status, req.priority, req.category, req.updated_at, JSON.stringify(req), req.id);
+}
+
+function deleteSingleRequest(id: string): void {
+  db.prepare('DELETE FROM requests WHERE id = ?').run(id);
 }
 
 function loadChangelog(): Record<string, unknown>[] {
   ensureDirs();
-  if (!fs.existsSync(CHANGELOG_FILE)) {
-    fs.writeFileSync(CHANGELOG_FILE, '[]');
-    return [];
-  }
-  try {
-    const raw = fs.readFileSync(CHANGELOG_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+  const rows = db.prepare('SELECT data FROM changelog ORDER BY timestamp ASC LIMIT ?').all(MAX_CHANGELOG_ENTRIES) as { data: string }[];
+  return rows.map(r => JSON.parse(r.data));
 }
 
 function saveChangelog(entries: Record<string, unknown>[]): void {
-  ensureDirs();
-  const trimmed = entries.slice(-MAX_CHANGELOG_ENTRIES);
-  fs.writeFileSync(CHANGELOG_FILE, JSON.stringify(trimmed, null, 2));
+  // Not heavily used to rewrite entire changelog, usually we just append
 }
 
 function recordChange(
@@ -82,8 +90,7 @@ function recordChange(
   details: Record<string, unknown> = {},
   author: string = 'system',
 ): void {
-  const entries = loadChangelog();
-  entries.push({
+  const entry = {
     id: `chg-${uuidv4().slice(0, 8)}`,
     request_id: requestId,
     change_type: changeType,
@@ -91,12 +98,9 @@ function recordChange(
     details,
     author,
     timestamp: new Date().toISOString(),
-  });
-  saveChangelog(entries);
-}
-
-function findRequest(requests: Record<string, unknown>[], id: string) {
-  return requests.find((r) => r.id === id) || null;
+  };
+  const stmt = db.prepare('INSERT INTO changelog (id, request_id, timestamp, data) VALUES (?, ?, ?, ?)');
+  stmt.run(entry.id, entry.request_id, entry.timestamp, JSON.stringify(entry));
 }
 
 // ---------------------------------------------------------------------------
@@ -363,12 +367,12 @@ router.put('/:id', (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 router.delete('/:id', (req: Request, res: Response) => {
   const requests = loadRequests();
-  const filtered = requests.filter((r) => r.id !== req.params.id);
-  if (filtered.length === requests.length) {
+  const request = findRequest(requests, req.params.id);
+  if (!request) {
     res.status(404).json({ status: 'error', detail: `Request ${req.params.id} not found` });
     return;
   }
-  saveRequests(filtered);
+  deleteSingleRequest(req.params.id);
   res.json({ status: 'success', message: `Request ${req.params.id} deleted` });
 });
 

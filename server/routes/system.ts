@@ -8,6 +8,7 @@ const execAsync = promisify(exec);
 const router = Router();
 
 const SETTINGS_FILE = path.join(process.cwd(), 'server', 'data', 'settings.json');
+const MOCKS_FILE = path.join(process.cwd(), 'server', 'data', 'mocks.json');
 
 function loadSettings() {
   if (!fs.existsSync(SETTINGS_FILE)) return { webhook_url: '' };
@@ -18,6 +19,17 @@ function saveSettings(settings: any) {
   const dir = path.dirname(SETTINGS_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+}
+
+function loadMocks() {
+  if (!fs.existsSync(MOCKS_FILE)) return [];
+  try { return JSON.parse(fs.readFileSync(MOCKS_FILE, 'utf-8')); } catch { return []; }
+}
+
+function saveMocks(mocks: any[]) {
+  const dir = path.dirname(MOCKS_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(MOCKS_FILE, JSON.stringify(mocks, null, 2));
 }
 
 // Endpoint to get settings
@@ -31,6 +43,22 @@ router.post('/settings', (req: Request, res: Response) => {
   const updated = { ...current, ...req.body };
   saveSettings(updated);
   res.json({ status: 'success', settings: updated });
+});
+
+// Endpoint to get mock rules
+router.get('/mocks', (req: Request, res: Response) => {
+  res.json({ status: 'success', mocks: loadMocks() });
+});
+
+// Endpoint to save all mock rules
+router.post('/mocks', (req: Request, res: Response) => {
+  const mocks = req.body;
+  if (!Array.isArray(mocks)) {
+    res.status(400).json({ status: 'error', detail: 'Body must be an array of mock rules' });
+    return;
+  }
+  saveMocks(mocks);
+  res.json({ status: 'success', mocks });
 });
 
 // Endpoint to list files in a directory

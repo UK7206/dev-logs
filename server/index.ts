@@ -3,14 +3,41 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import requestRoutes from './routes/requests.js';
 import systemRoutes from './routes/system.js';
+import { db } from './db.js'; // Triggers DB setup & migration
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
 const PORT = parseInt(process.env.PORT || '4445', 10);
+
+// ---------------------------------------------------------------------------
+// Socket.io - Real-time multiplayer collaboration
+// ---------------------------------------------------------------------------
+io.on('connection', (socket) => {
+  console.log('[dev-logs] Client connected via Socket.io:', socket.id);
+  
+  socket.on('cursor-move', (data) => {
+    socket.broadcast.emit('cursor-move', { ...data, id: socket.id });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('[dev-logs] Client disconnected:', socket.id);
+    socket.broadcast.emit('cursor-remove', { id: socket.id });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // SSE client registry — broadcast real-time events to the dashboard
@@ -18,6 +45,7 @@ const PORT = parseInt(process.env.PORT || '4445', 10);
 export const sseClients = new Set<Response>();
 
 export function broadcastEvent(event: string, data: unknown) {
+  // Broadcast via SSE (legacy)
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const client of sseClients) {
     try {
@@ -26,6 +54,9 @@ export function broadcastEvent(event: string, data: unknown) {
       sseClients.delete(client);
     }
   }
+  
+  // Broadcast via Socket.io
+  io.emit('dev-logs-event', { event, data });
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +147,7 @@ for (const dir of dirs) {
   }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`dev-logs server running on http://localhost:${PORT}`);
+  console.log(`Socket.io server attached for real-time collaboration`);
 });

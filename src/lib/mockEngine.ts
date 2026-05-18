@@ -40,13 +40,32 @@ export class MockEngine {
 
   private saveRules() {
     localStorage.setItem('devLogs_mockRules', JSON.stringify(this.rules));
+    
+    // Sync with backend
+    const port = window.location.port === '4444' ? '4445' : window.location.port;
+    fetch(`http://${window.location.hostname}:${port}/api/system/mocks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(this.rules)
+    }).catch(console.error);
   }
 
-  private loadRules() {
+  private async loadRules() {
     try {
       const stored = localStorage.getItem('devLogs_mockRules');
       if (stored) {
         this.rules = JSON.parse(stored);
+      }
+      
+      // Try to load from backend
+      const port = window.location.port === '4444' ? '4445' : window.location.port;
+      const res = await fetch(`http://${window.location.hostname}:${port}/api/system/mocks`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.mocks && data.mocks.length > 0) {
+          this.rules = data.mocks;
+          localStorage.setItem('devLogs_mockRules', JSON.stringify(this.rules));
+        }
       }
     } catch (e) {
       console.error('Failed to load mock rules', e);

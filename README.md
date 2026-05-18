@@ -195,7 +195,7 @@ export default defineConfig({
 │   │  overlay.js      │  │     │                          │
 │   └──────────────────┘  │     │   Backend (Express)      │
 │                         │     │   http://localhost:4445   │
-│   🐛 Bug Button         │     │                          │
+│   🐛 Bug Button        │     │                          │
 │   (captures context)    │────►│   /api/requests          │
 │                         │     │   JSON file storage      │
 └─────────────────────────┘     └──────────────────────────┘

@@ -6,6 +6,7 @@ import ExecutionEngine from './ExecutionEngine';
 import EnvironmentProfiles from './EnvironmentProfiles';
 import WebhookSettings from './WebhookSettings';
 import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   onClose: () => void;
@@ -19,8 +20,26 @@ export default function InsightEngineLayout({ onClose }: Props) {
     throw new Error('Simulated Application Crash for DevLogsErrorBoundary');
   }
 
+  const renderTabContent = () => {
+    switch(activeTab) {
+      case 'analytics': return <AnalyticsDashboard />;
+      case 'mock': return <MockStudio />;
+      case 'tests': return <AutoTestGenerator />;
+      case 'exec': return <ExecutionEngine />;
+      case 'env': return <EnvironmentProfiles />;
+      case 'webhook': return <WebhookSettings />;
+      default: return null;
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[99999] bg-black flex flex-col font-sans">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[99999] bg-black flex flex-col font-sans"
+    >
       {/* Top Navigation Bar */}
       <div className="bg-gray-950 border-b border-gray-800 p-4 flex justify-between items-center shrink-0">
         <div className="flex items-center gap-8">
@@ -32,66 +51,36 @@ export default function InsightEngineLayout({ onClose }: Props) {
           </div>
 
           <div className="flex gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800">
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'analytics' 
-                  ? 'bg-gray-800 text-white shadow' 
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-              }`}
-            >
-              <Activity className="w-4 h-4" /> Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab('mock')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'mock' 
-                  ? 'bg-gray-800 text-white shadow' 
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-              }`}
-            >
-              <Server className="w-4 h-4" /> Mock Studio
-            </button>
-            <button
-              onClick={() => setActiveTab('tests')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'tests' 
-                  ? 'bg-gray-800 text-white shadow' 
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-              }`}
-            >
-              <Code className="w-4 h-4" /> Auto-Tests
-            </button>
-            <button
-              onClick={() => setActiveTab('exec')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'exec' 
-                  ? 'bg-gray-800 text-white shadow' 
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-              }`}
-            >
-              <TerminalSquare className="w-4 h-4 text-green-400" /> Exec Engine
-            </button>
-            <button
-              onClick={() => setActiveTab('env')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'env' 
-                  ? 'bg-gray-800 text-white shadow' 
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-              }`}
-            >
-              <Globe className="w-4 h-4 text-purple-400" /> Env Profiles
-            </button>
-            <button
-              onClick={() => setActiveTab('webhook')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'webhook' 
-                  ? 'bg-gray-800 text-white shadow' 
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-              }`}
-            >
-              <Webhook className="w-4 h-4 text-indigo-400" /> Webhooks
-            </button>
+            {[
+              { id: 'analytics', icon: Activity, label: 'Analytics', color: '' },
+              { id: 'mock', icon: Server, label: 'Mock Studio', color: '' },
+              { id: 'tests', icon: Code, label: 'Auto-Tests', color: '' },
+              { id: 'exec', icon: TerminalSquare, label: 'Exec Engine', color: 'text-green-400' },
+              { id: 'env', icon: Globe, label: 'Env Profiles', color: 'text-purple-400' },
+              { id: 'webhook', icon: Webhook, label: 'Webhooks', color: 'text-indigo-400' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === tab.id 
+                    ? 'text-white' 
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                }`}
+              >
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="activeTabBg"
+                    className="absolute inset-0 bg-gray-800 rounded-md shadow"
+                    initial={false}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <tab.icon className={`w-4 h-4 ${tab.color}`} /> {tab.label}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -112,26 +101,20 @@ export default function InsightEngineLayout({ onClose }: Props) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-auto bg-gray-900 min-h-0">
-        <div style={{ display: activeTab === 'analytics' ? 'block' : 'none', height: '100%' }}>
-          <AnalyticsDashboard />
-        </div>
-        <div style={{ display: activeTab === 'mock' ? 'block' : 'none', height: '100%' }}>
-          <MockStudio />
-        </div>
-        <div style={{ display: activeTab === 'tests' ? 'block' : 'none', height: '100%' }}>
-          <AutoTestGenerator />
-        </div>
-        <div style={{ display: activeTab === 'exec' ? 'block' : 'none', height: '100%' }}>
-          <ExecutionEngine />
-        </div>
-        <div style={{ display: activeTab === 'env' ? 'block' : 'none', height: '100%' }}>
-          <EnvironmentProfiles />
-        </div>
-        <div style={{ display: activeTab === 'webhook' ? 'block' : 'none', height: '100%' }}>
-          <WebhookSettings />
-        </div>
+      <div className="flex-1 overflow-auto bg-gray-900 min-h-0 relative">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
+            className="h-full"
+          >
+            {renderTabContent()}
+          </motion.div>
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }

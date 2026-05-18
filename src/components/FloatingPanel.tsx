@@ -312,7 +312,24 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
             </div>
 
             {/* Right: controls */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 mr-2">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.5)' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <input
+                    type="text"
+                    placeholder="Your Name"
+                    className="bg-transparent outline-none text-[10px] w-16 text-gray-300 placeholder-gray-500 font-medium"
+                    defaultValue={localStorage.getItem('devLogs_author') || ''}
+                    onBlur={(e) => {
+                      const val = e.target.value.trim();
+                      if (val) localStorage.setItem('devLogs_author', val);
+                      else localStorage.removeItem('devLogs_author');
+                    }}
+                  />
+                </div>
+              </div>
+
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('dev-logs:open-insight'))}
                 title="Open Insight Engine"

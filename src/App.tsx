@@ -4,6 +4,7 @@ import FloatingBugButton from './components/FloatingBugButton';
 import DevCapture from './components/DevCapture';
 import KanbanDashboard from './components/KanbanDashboard';
 import InsightEngineLayout from './components/InsightEngineLayout';
+import MultiplayerCursors from './components/MultiplayerCursors';
 import { installConsoleInterceptor, installNetworkInterceptor } from './components/DevCapture';
 
 // Install interceptors on load
@@ -40,15 +41,26 @@ export default function App() {
   }, []);
 
   if (kanbanOpen) {
-    return <KanbanDashboard onClose={() => setKanbanOpen(false)} />;
+    return (
+      <>
+        <KanbanDashboard onClose={() => setKanbanOpen(false)} />
+        <MultiplayerCursors />
+      </>
+    );
   }
 
   if (insightOpen) {
-    return <InsightEngineLayout onClose={() => setInsightOpen(false)} />;
+    return (
+      <>
+        <InsightEngineLayout onClose={() => setInsightOpen(false)} />
+        <MultiplayerCursors />
+      </>
+    );
   }
 
   return (
     <>
+      <MultiplayerCursors />
       {/* Floating panel */}
       <div data-dev-logs-panel>
         <FloatingPanel
