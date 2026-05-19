@@ -6,7 +6,10 @@ import ExecutionEngine from './ExecutionEngine';
 import EnvironmentProfiles from './EnvironmentProfiles';
 import WebhookSettings from './WebhookSettings';
 import ApiReplay from './ApiReplay';
-import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook, RefreshCcw } from 'lucide-react';
+import DatabaseExplorer from './DatabaseExplorer';
+import SystemMonitor from './SystemMonitor';
+import DevToolkit from './DevToolkit';
+import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook, RefreshCcw, Database, HardDrive, Wrench } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -14,7 +17,7 @@ interface Props {
 }
 
 export default function InsightEngineLayout({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook' | 'replay'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook' | 'replay' | 'db' | 'sys' | 'tools'>('analytics');
   const [shouldCrash, setShouldCrash] = useState(false);
 
   if (shouldCrash) {
@@ -30,6 +33,9 @@ export default function InsightEngineLayout({ onClose }: Props) {
       case 'env': return <EnvironmentProfiles />;
       case 'webhook': return <WebhookSettings />;
       case 'replay': return <ApiReplay />;
+      case 'db': return <DatabaseExplorer />;
+      case 'sys': return <SystemMonitor />;
+      case 'tools': return <DevToolkit />;
       default: return null;
     }
   };
@@ -58,6 +64,9 @@ export default function InsightEngineLayout({ onClose }: Props) {
               { id: 'mock', icon: Server, label: 'Mock Studio', color: '' },
               { id: 'tests', icon: Code, label: 'Auto-Tests', color: '' },
               { id: 'exec', icon: TerminalSquare, label: 'Exec Engine', color: 'text-green-400' },
+              { id: 'db', icon: Database, label: 'DB Explorer', color: 'text-blue-400' },
+              { id: 'sys', icon: HardDrive, label: 'System', color: 'text-emerald-400' },
+              { id: 'tools', icon: Wrench, label: 'Dev Tools', color: 'text-amber-500' },
               { id: 'env', icon: Globe, label: 'Env Profiles', color: 'text-purple-400' },
               { id: 'webhook', icon: Webhook, label: 'Webhooks', color: 'text-indigo-400' },
               { id: 'replay', icon: RefreshCcw, label: 'API Replay', color: 'text-orange-400' }

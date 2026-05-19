@@ -151,4 +151,74 @@ router.post('/exec', async (req: Request, res: Response) => {
   }
 });
 
+import os from 'os';
+import { db } from '../db.js';
+
+// Endpoint to get system metrics
+router.get('/metrics', (req: Request, res: Response) => {
+  try {
+    const memTotal = os.totalmem();
+    const memFree = os.freemem();
+    const processMem = process.memoryUsage();
+    const cpus = os.cpus();
+    
+    res.json({
+      status: 'success',
+      data: {
+        uptime: os.uptime(),
+        processUptime: process.uptime(),
+        os: {
+          platform: os.platform(),
+          arch: os.arch(),
+          release: os.release(),
+          nodeVersion: process.version
+        },
+        cpu: {
+          model: cpus[0]?.model || 'Unknown CPU',
+          cores: cpus.length,
+          loadAvg: os.loadavg(),
+        },
+        memory: {
+          total: memTotal,
+          free: memFree,
+          used: memTotal - memFree,
+          percent: ((memTotal - memFree) / memTotal) * 100
+        },
+        processMemory: {
+          rss: processMem.rss,
+          heapTotal: processMem.heapTotal,
+          heapUsed: processMem.heapUsed,
+          external: processMem.external,
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', detail: (error as Error).message });
+  }
+});
+
+// Endpoint to execute SQL queries
+router.post('/sql', (req: Request, res: Response) => {
+  try {
+    const { query } = req.body;
+    if (!query) {
+      res.status(400).json({ status: 'error', detail: 'Query is required' });
+      return;
+    }
+
+    const trimmed = query.trim().toUpperCase();
+    const isSelect = trimmed.startsWith('SELECT') || trimmed.startsWith('PRAGMA') || trimmed.startsWith('EXPLAIN');
+    
+    if (isSelect) {
+      const results = db.prepare(query).all();
+      res.json({ status: 'success', data: results });
+    } else {
+      const info = db.prepare(query).run();
+      res.json({ status: 'success', info });
+    }
+  } catch (error) {
+    res.status(500).json({ status: 'error', detail: (error as Error).message });
+  }
+});
+
 export default router;
