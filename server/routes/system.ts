@@ -40,6 +40,7 @@ router.get('/settings', (req: Request, res: Response) => {
 // Endpoint to update settings
 router.post('/settings', (req: Request, res: Response) => {
   const current = loadSettings();
+  // Merge all incoming fields (webhook_url, webhook_type, webhook_name, webhook_events, etc.)
   const updated = { ...current, ...req.body };
   saveSettings(updated);
   res.json({ status: 'success', settings: updated });

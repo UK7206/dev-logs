@@ -6,6 +6,7 @@ import KanbanDashboard from './components/KanbanDashboard';
 import InsightEngineLayout from './components/InsightEngineLayout';
 import MultiplayerCursors from './components/MultiplayerCursors';
 import PerformanceHUD from './components/PerformanceHUD';
+import HomeDashboard from './components/HomeDashboard';
 import { installConsoleInterceptor, installNetworkInterceptor } from './components/DevCapture';
 
 // Install interceptors on load
@@ -17,6 +18,7 @@ export default function App() {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [kanbanOpen, setKanbanOpen] = useState(false);
   const [insightOpen, setInsightOpen] = useState(false);
+  const [homeOpen, setHomeOpen] = useState(false);
   const [showHUD, setShowHUD] = useState(localStorage.getItem('devLogs_showHUD') !== 'false');
 
   // Listen for custom events
@@ -30,6 +32,12 @@ export default function App() {
       setPanelOpen(false);
       setInsightOpen(true);
     };
+    const openHome = () => {
+      setPanelOpen(false);
+      setKanbanOpen(false);
+      setInsightOpen(false);
+      setHomeOpen(true);
+    };
     const toggleHUD = () => {
       setShowHUD((prev) => {
         const next = !prev;
@@ -41,15 +49,32 @@ export default function App() {
     window.addEventListener('dev-capture:open', togglePanel);
     window.addEventListener('dev-logs:open-kanban', openKanban);
     window.addEventListener('dev-logs:open-insight', openInsight);
+    window.addEventListener('dev-logs:open-home', openHome);
     window.addEventListener('dev-logs:toggle-hud', toggleHUD);
 
     return () => {
       window.removeEventListener('dev-capture:open', togglePanel);
       window.removeEventListener('dev-logs:open-kanban', openKanban);
       window.removeEventListener('dev-logs:open-insight', openInsight);
+      window.removeEventListener('dev-logs:open-home', openHome);
       window.removeEventListener('dev-logs:toggle-hud', toggleHUD);
     };
   }, []);
+
+  if (homeOpen) {
+    return (
+      <>
+        <HomeDashboard
+          onClose={() => setHomeOpen(false)}
+          onOpenPanel={() => { setHomeOpen(false); setPanelOpen(true); }}
+          onOpenKanban={() => { setHomeOpen(false); setKanbanOpen(true); }}
+          onOpenInsight={() => { setHomeOpen(false); setInsightOpen(true); }}
+        />
+        <MultiplayerCursors />
+        {showHUD && <PerformanceHUD />}
+      </>
+    );
+  }
 
   if (kanbanOpen) {
     return (

@@ -24,6 +24,7 @@ import {
 import { toast } from 'sonner';
 import { fetchRequests, createRequest, uploadAttachment } from '../lib/api';
 import type { Priority, Category } from '../types';
+import AISuggestPanel from './AISuggestPanel';
 
 interface SubmitTabProps {
   onOpenCapture: () => void;
@@ -109,6 +110,7 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
+  const [aiTitle, setAiTitle] = useState('');
 
   const handleRecordVideo = async () => {
     if (isRecording) {
@@ -192,8 +194,8 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
       const consoleLogs = ((window as any).__consoleBuffer as ConsoleEntry[] || []).slice(-50);
       const networkLogs = ((window as any).__networkBuffer as any[] || []).slice(-20);
 
-      // Auto-generate title from first 80 chars of description
-      const autoTitle = description.trim().split('\n')[0].slice(0, 80) || 'New request';
+      // Use AI-suggested title if available, else auto-generate from description
+      const autoTitle = aiTitle.trim() || description.trim().split('\n')[0].slice(0, 80) || 'New request';
 
       const contextBlock = [
         description.trim(),
@@ -263,12 +265,28 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
     setCategory('bug');
     setTags([]);
     setTagInput('');
+    setAiTitle('');
   };
 
   const addTag = (raw: string) => {
     const t = raw.trim().toLowerCase().replace(/^#+/, '');
     if (t && !tags.includes(t) && tags.length < 8) setTags((prev) => [...prev, t]);
     setTagInput('');
+  };
+
+  const handleAIApply = (opts: { title?: string; priority?: string; category?: string; tags?: string[] }) => {
+    if (opts.title) setAiTitle(opts.title);
+    if (opts.priority) setPriority(opts.priority as Priority);
+    if (opts.category) {
+      const cat = opts.category === 'ui-ux' || opts.category === 'ui' ? 'ui-ux' : opts.category;
+      setCategory(cat as Category);
+    }
+    if (opts.tags) {
+      opts.tags.forEach((t) => {
+        setTags((prev) => prev.includes(t) ? prev : [...prev, t].slice(0, 8));
+      });
+    }
+    toast.success('AI suggestions applied!');
   };
 
   const removeTag = (t: string) => setTags((prev) => prev.filter((x) => x !== t));
@@ -515,6 +533,14 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(6,182,212,0.5)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(51,65,85,0.5)'; }}
+          />
+
+          {/* AI Triage Panel — appears after 15 chars */}
+          <AISuggestPanel
+            description={description}
+            consoleErrors={consoleErrors}
+            onApply={handleAIApply}
+            onViewRequest={(id) => onSwitchToRequests(id)}
           />
         </div>
 

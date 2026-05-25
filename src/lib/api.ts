@@ -90,6 +90,43 @@ export async function suggestFix(id: string): Promise<string> {
   return data.suggestion;
 }
 
+// ---------- AI Triage ----------
+
+export interface TriageResult {
+  title: string;
+  priority: { priority: string; confidence: number; reason: string };
+  category: { category: string; confidence: number };
+  tags: string[];
+  similar_requests: { id: string; title: string; status: string; priority: string; similarity: number }[];
+  analyzed_at: string;
+}
+
+export async function triageRequest(
+  description: string,
+  console_errors = 0,
+): Promise<TriageResult> {
+  const data = await request<{ triage: TriageResult }>('/ai/triage', {
+    method: 'POST',
+    body: JSON.stringify({ description, console_errors }),
+  });
+  return data.triage;
+}
+
+export interface AISuggestFixResult {
+  root_cause: string;
+  steps: string[];
+  code_example: string;
+  has_console_errors: boolean;
+  has_network_logs: boolean;
+}
+
+export async function aiSuggestFix(id: string): Promise<AISuggestFixResult> {
+  const data = await request<{ suggestion: AISuggestFixResult }>(`/ai/suggest-fix/${id}`, {
+    method: 'POST',
+  });
+  return data.suggestion;
+}
+
 // ---------- Checklist ----------
 
 export async function addChecklist(

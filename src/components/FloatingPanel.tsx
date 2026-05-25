@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bug, Minus, X, Send, List, Activity } from 'lucide-react';
+import { Bug, Minus, X, Send, List, Activity, Home, LayoutDashboard } from 'lucide-react';
 import SubmitTab from './SubmitTab';
 import RequestList from './RequestList';
 import RequestDetail from './RequestDetail';
+import NotificationBell from './NotificationBell';
 
 const MIN_WIDTH = 380;
 const MIN_HEIGHT = 500;
@@ -330,6 +331,22 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
                 </div>
               </div>
 
+              <NotificationBell
+                onNavigate={(requestId) => {
+                  setActiveTab('requests');
+                  setSelectedRequestId(requestId);
+                }}
+              />
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('dev-logs:open-home'))}
+                title="Open Home Dashboard"
+                className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
+                style={{ color: '#94a3b8' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#22d3ee'; e.currentTarget.style.background = 'rgba(6,182,212,0.1)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent' }}
+              >
+                <Home size={14} />
+              </button>
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('dev-logs:open-insight'))}
                 title="Open Insight Engine"

@@ -7,6 +7,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import requestRoutes from './routes/requests.js';
 import systemRoutes from './routes/system.js';
+import aiRoutes from './routes/ai.js';
 import { db } from './db.js'; // Triggers DB setup & migration
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,28 +63,97 @@ export function broadcastEvent(event: string, data: unknown) {
 // ---------------------------------------------------------------------------
 // Webhook — fire-and-forget POST to configured URL
 // ---------------------------------------------------------------------------
-export async function fireWebhook(event: string, payload: unknown) {
+export async function fireWebhook(event: string, payload: Record<string, unknown>) {
   const settingsFile = path.join(__dirname, 'data', 'settings.json');
-  let webhookUrl = process.env.DEV_LOGS_WEBHOOK_URL || '';
+  let webhookUrl  = process.env.DEV_LOGS_WEBHOOK_URL || '';
+  let webhookType = 'custom';
+  let webhookName = 'dev-logs';
+
   try {
     if (fs.existsSync(settingsFile)) {
       const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
-      if (settings.webhook_url) webhookUrl = settings.webhook_url;
+      if (settings.webhook_url)    webhookUrl  = settings.webhook_url;
+      if (settings.webhook_type)   webhookType = settings.webhook_type;
+      if (settings.webhook_name)   webhookName = settings.webhook_name;
+
+      // Check if this event is enabled
+      const enabledEvents: string[] = settings.webhook_events ?? [];
+      if (enabledEvents.length > 0 && !enabledEvents.includes(event)) return;
     }
-  } catch (err) {}
+  } catch { /* ignore */ }
 
   if (!webhookUrl) return;
 
+  // Build rich payload per platform
+  const EVENT_COLORS: Record<string, number> = {
+    request_created: 0x22c55e,
+    status_change:   0x3b82f6,
+    priority_change: 0xf59e0b,
+    comment_added:   0xa855f7,
+    attachment_added: 0x06b6d4,
+  };
+
+  const EVENT_EMOJIS: Record<string, string> = {
+    request_created:  '🐛',
+    status_change:    '🔄',
+    priority_change:  '⚡',
+    comment_added:    '💬',
+    attachment_added: '📎',
+  };
+
+  const emoji = EVENT_EMOJIS[event] ?? '📌';
+  const title = payload.title as string ?? 'dev-logs Event';
+  const reqId = payload.id as string ?? payload.request_id as string ?? '';
+
+  let body: Record<string, unknown>;
+
+  if (webhookType === 'discord') {
+    const fields: { name: string; value: string; inline?: boolean }[] = [];
+    if (reqId)              fields.push({ name: 'ID',       value: `\`${reqId}\``,                       inline: true });
+    if (payload.priority)   fields.push({ name: 'Priority', value: String(payload.priority),              inline: true });
+    if (payload.status)     fields.push({ name: 'Status',   value: String(payload.status),               inline: true });
+    if (payload.old_status) fields.push({ name: 'Status',   value: `${payload.old_status} → ${payload.new_status}`, inline: false });
+
+    body = {
+      username: webhookName,
+      embeds: [{
+        title:       `${emoji} ${event.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}: ${title}`,
+        color:       EVENT_COLORS[event] ?? 0x22d3ee,
+        fields,
+        footer:      { text: `dev-logs · ${new Date().toLocaleDateString()}` },
+        timestamp:   new Date().toISOString(),
+      }],
+    };
+  } else if (webhookType === 'slack') {
+    body = {
+      username: webhookName,
+      text:     `${emoji} *${event.replace(/_/g, ' ')}*: ${title}`,
+      attachments: [{
+        color:  '#' + ((EVENT_COLORS[event] ?? 0x22d3ee).toString(16).padStart(6, '0')),
+        fields: [
+          reqId && { title: 'ID', value: reqId, short: true },
+          payload.priority && { title: 'Priority', value: String(payload.priority), short: true },
+          payload.status   && { title: 'Status',   value: String(payload.status),  short: true },
+        ].filter(Boolean),
+        footer: 'dev-logs',
+        ts:     Math.floor(Date.now() / 1000),
+      }],
+    };
+  } else {
+    body = { event, ...payload, _source: webhookName, _timestamp: new Date().toISOString() };
+  }
+
   try {
     await fetch(webhookUrl, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event, ...(payload as object) }),
+      body:    JSON.stringify(body),
     });
   } catch (err) {
     console.warn('[dev-logs] Webhook delivery failed:', (err as Error).message);
   }
 }
+
 
 // Middleware
 app.use(cors());
@@ -137,6 +207,7 @@ app.get('/overlay.js', (_req, res) => {
 // Mount API routes
 app.use('/api/requests', requestRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Create data directories on startup
 const dataDir = path.join(__dirname, 'data');
