@@ -10,7 +10,8 @@ import ApiReplay from './ApiReplay';
 import DatabaseExplorer from './DatabaseExplorer';
 import SystemMonitor from './SystemMonitor';
 import DevToolkit from './DevToolkit';
-import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook, RefreshCcw, Database, HardDrive, Wrench, Share2 } from 'lucide-react';
+import AgentStudio from './AgentStudio';
+import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook, RefreshCcw, Database, HardDrive, Wrench, Share2, BrainCircuit } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -18,7 +19,7 @@ interface Props {
 }
 
 export default function InsightEngineLayout({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'canvas' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook' | 'replay' | 'db' | 'sys' | 'tools'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'agent' | 'canvas' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook' | 'replay' | 'db' | 'sys' | 'tools'>('analytics');
   const [shouldCrash, setShouldCrash] = useState(false);
 
   if (shouldCrash) {
@@ -28,6 +29,7 @@ export default function InsightEngineLayout({ onClose }: Props) {
   const renderTabContent = () => {
     switch(activeTab) {
       case 'analytics': return <AnalyticsDashboard />;
+      case 'agent': return <AgentStudio />;
       case 'canvas': return <ArchitectureCanvas />;
       case 'mock': return <MockStudio />;
       case 'tests': return <AutoTestGenerator />;
@@ -63,6 +65,7 @@ export default function InsightEngineLayout({ onClose }: Props) {
           <div className="flex gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800 shrink-0">
             {[
               { id: 'analytics', icon: Activity, label: 'Analytics', color: '' },
+              { id: 'agent', icon: BrainCircuit, label: 'AI Agent Studio', color: 'text-purple-400 font-semibold' },
               { id: 'canvas', icon: Share2, label: 'Architecture', color: 'text-pink-400' },
               { id: 'mock', icon: Server, label: 'Mock Studio', color: '' },
               { id: 'tests', icon: Code, label: 'Auto-Tests', color: '' },

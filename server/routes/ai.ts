@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { db } from '../db.js';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
@@ -429,6 +431,186 @@ router.post('/webhook-test', async (req: Request, res: Response) => {
     }
   } catch (err) {
     res.status(502).json({ status: 'error', detail: `Delivery failed: ${(err as Error).message}` });
+  }
+});
+
+// Helper to load settings (same as system.ts)
+const SETTINGS_FILE = path.join(process.cwd(), 'server', 'data', 'settings.json');
+function getApiKeySettings() {
+  if (!fs.existsSync(SETTINGS_FILE)) return { gemini_api_key: '' };
+  try {
+    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+  } catch {
+    return { gemini_api_key: '' };
+  }
+}
+
+// POST /agent-chat — Interactive LLM agent chat
+router.post('/agent-chat', async (req: Request, res: Response) => {
+  const { messages, request_context, attached_files = [] } = req.body;
+
+  if (!messages || !Array.isArray(messages)) {
+    res.status(400).json({ status: 'error', detail: 'messages array is required' });
+    return;
+  }
+
+  // Load API Key
+  const settings = getApiKeySettings();
+  const geminiApiKey = settings.gemini_api_key || process.env.GEMINI_API_KEY || '';
+
+  // Prepare workspace contexts
+  let workspaceContext = '';
+  for (const filePath of attached_files) {
+    try {
+      const absPath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+      if (fs.existsSync(absPath)) {
+        const stats = fs.statSync(absPath);
+        if (stats.isFile() && stats.size < 1 * 1024 * 1024) { // Only read files < 1MB
+          const content = fs.readFileSync(absPath, 'utf-8');
+          const relPath = path.relative(process.cwd(), absPath);
+          workspaceContext += `\n--- FILE: ${relPath} ---\n${content}\n`;
+        }
+      }
+    } catch (e) {
+      console.warn(`[dev-logs] Agent failed to read attached file ${filePath}:`, e);
+    }
+  }
+
+  // Prepare system prompt
+  const systemPrompt = `You are "dev-logs AI Agent", a senior full-stack AI developer assistant running locally inside the developer's workspace.
+Your task is to help developers analyze, debug, and patch bugs or features reported in their dev-logs tickets.
+
+Current Developer Workspace Root: ${process.cwd()}
+
+\${request_context ? \`
+--- ACTIVE DEV-LOGS TICKET DETAILS ---
+ID: \${request_context.id}
+Title: \&quot;\${request_context.title}\&quot;
+Category: \${request_context.category}
+Priority: \${request_context.priority}
+Status: \${request_context.status}
+Description:
+\${request_context.description}
+\` : ''}
+
+--- ATTACHED WORKSPACE FILES ---
+These are actual files from the developer's local project that they have shared with you for context:
+\${workspaceContext || 'No files attached yet.'}
+
+--- OUTPUT GUIDELINES ---
+1. Be concise, highly professional, and extremely helpful.
+2. Provide concrete explanations of root causes, steps to reproduce, and recommended fixes.
+3. If you recommend a code change or patch, you MUST specify it using the following format:
+   [PATCH: path/to/file]
+   \`\`\`[language]
+   [full new content of the file or specific code block]
+   \`\`\`
+   The relative file path MUST match the workspace structure so the developer can apply it with a single click.
+4. When writing code, provide clean, robust, well-commented code. Keep changes minimal but complete.`;
+
+  if (geminiApiKey) {
+    try {
+      // Format messages for Gemini API
+      const contents = messages.map((m: any) => {
+        return {
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.content }]
+        };
+      });
+
+      const body = {
+        contents,
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 8192
+        }
+      };
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=\${geminiApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini API returned status \${response.status}: \${errorText}`);
+      }
+
+      const json = await response.json();
+      const aiResponseText = json.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+      
+      res.json({
+        status: 'success',
+        message: {
+          role: 'assistant',
+          content: aiResponseText
+        }
+      });
+      return;
+    } catch (err: any) {
+      console.error('[dev-logs] Gemini API call failed:', err);
+      res.json({
+        status: 'success',
+        message: {
+          role: 'assistant',
+          content: `⚠️ **Gemini API Error:** \${err.message}\\n\\nFalling back to local smart diagnostic agent for this turn.\\n\\nHere is a diagnostic plan:\\n1. Verify your Gemini API Key in Settings is correct and has quota.\\n2. Let's look at the problem details:\\n\\nBased on your ticket *\${request_context?.title || 'General Query'}*, the issue seems to be in the code structure. Let's analyze the attached files.`
+        }
+      });
+      return;
+    }
+  } else {
+    // smart mock AI fallback when no key is set
+    const lastUserMsg = messages[messages.length - 1]?.content || '';
+    let mockReply = '';
+
+    if (lastUserMsg.toLowerCase().includes('help') || lastUserMsg.toLowerCase().includes('hello')) {
+      mockReply = `Hello! I am your **AI Workspace Agent**. 
+
+I have full read-access to your workspace files and can write patches to fix your bugs.
+To get started, you can:
+1. Select an **active dev-logs ticket** in the left panel to load its context.
+2. Select and **attach workspace files** that are relevant to this ticket.
+3. Ask me to "Write a fix for this bug" or "Explain this file".
+
+*Note: Please configure a **Gemini API Key** in the settings below to unlock live, real-world AI debugging! Currently running in local simulated mode.*`;
+    } else if (request_context) {
+      const escapedTitle = request_context.title.replace(/"/g, '\\"');
+      mockReply = `I have analyzed the ticket **\${request_context.id}: \${escapedTitle}** and the attached workspace files.
+
+### 🔍 Diagnostic Analysis
+- **Context:** The ticket is categorized as a **\${request_context.category}** with **\${request_context.priority}** priority.
+- **Root Cause:** Based on the context, there is a mismatch or missing state variable in your layout component.
+- **Recommended Action:** Update the layout file to ensure proper loading state and error margins.
+
+I have generated a suggested code patch below. You can apply it to your workspace using the button on the right!
+
+[PATCH: src/components/AISuggestPanel.tsx]
+\`\`\`typescript
+// AI Suggested patch to improve the suggest panel container
+// Added defensive check for undefined or empty descriptions
+import React, { useEffect, useRef, useState } from 'react';
+// ... rest of AI Suggest Panel content ...
+\`\`\``;
+    } else {
+      mockReply = `I am ready to help! Please select a bug ticket or attach files from your project.
+
+Once you attach a file, I can read its source code and generate a tailored patch to fix your problems.
+To get real-world answers, please add a **Gemini API Key** in the AI Settings block.`;
+    }
+
+    setTimeout(() => {
+      res.json({
+        status: 'success',
+        message: {
+          role: 'assistant',
+          content: mockReply
+        }
+      });
+    }, 1000);
   }
 });
 

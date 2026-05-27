@@ -198,6 +198,136 @@ router.get('/metrics', (req: Request, res: Response) => {
   }
 });
 
+const BACKUPS_DIR = path.join(process.cwd(), 'server', 'data', 'backups');
+const BACKUPS_INDEX_FILE = path.join(BACKUPS_DIR, 'history.json');
+
+function loadBackupHistory() {
+  if (!fs.existsSync(BACKUPS_INDEX_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(BACKUPS_INDEX_FILE, 'utf-8'));
+  } catch {
+    return [];
+  }
+}
+
+function saveBackupHistory(history: any[]) {
+  if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  fs.writeFileSync(BACKUPS_INDEX_FILE, JSON.stringify(history, null, 2));
+}
+
+// Endpoint to write a file (local workspace edit) with auto-backup creation
+router.post('/write', (req: Request, res: Response) => {
+  try {
+    const { file, content } = req.body;
+    if (!file) {
+      res.status(400).json({ status: 'error', detail: 'File path is required' });
+      return;
+    }
+    
+    // Convert to absolute path if not already
+    const absPath = path.isAbsolute(file) ? file : path.resolve(process.cwd(), file);
+    
+    // Security check: restrict writing to outside of process.cwd()
+    if (!absPath.startsWith(process.cwd())) {
+      res.status(403).json({ status: 'error', detail: 'Writing outside workspace directory is restricted' });
+      return;
+    }
+
+    // Capture backup before overwriting existing file
+    if (fs.existsSync(absPath)) {
+      try {
+        const originalContent = fs.readFileSync(absPath, 'utf-8');
+        const backupId = 'bak_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        
+        if (!fs.existsSync(BACKUPS_DIR)) {
+          fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+        }
+        
+        const backupFilePath = path.join(BACKUPS_DIR, `${backupId}.txt`);
+        fs.writeFileSync(backupFilePath, originalContent, 'utf-8');
+        
+        const history = loadBackupHistory();
+        const relativePath = path.relative(process.cwd(), absPath);
+        history.unshift({
+          id: backupId,
+          relativePath,
+          absPath,
+          backupFilePath,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Cap history at 50 backups
+        saveBackupHistory(history.slice(0, 50));
+      } catch (err) {
+        console.warn('[dev-logs] Backup failed for path:', absPath, err);
+      }
+    }
+
+    // Ensure directory exists
+    const dir = path.dirname(absPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(absPath, content, 'utf-8');
+    res.json({ status: 'success', file: absPath, message: 'File written and backed up successfully' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', detail: (error as Error).message });
+  }
+});
+
+// Endpoint to list patch history backups
+router.get('/backups', (req: Request, res: Response) => {
+  try {
+    res.json({ status: 'success', history: loadBackupHistory() });
+  } catch (error) {
+    res.status(500).json({ status: 'error', detail: (error as Error).message });
+  }
+});
+
+// Endpoint to rollback a file write patch
+router.post('/rollback', (req: Request, res: Response) => {
+  try {
+    const { id } = req.body;
+    if (!id) {
+      res.status(400).json({ status: 'error', detail: 'Backup ID is required' });
+      return;
+    }
+
+    const history = loadBackupHistory();
+    const entryIndex = history.findIndex((h: any) => h.id === id);
+    
+    if (entryIndex === -1) {
+      res.status(404).json({ status: 'error', detail: 'Backup entry not found' });
+      return;
+    }
+
+    const entry = history[entryIndex];
+    if (!fs.existsSync(entry.backupFilePath)) {
+      res.status(404).json({ status: 'error', detail: `Backup file does not exist: ${entry.backupFilePath}` });
+      return;
+    }
+
+    const originalContent = fs.readFileSync(entry.backupFilePath, 'utf-8');
+    
+    // Write back the original content
+    fs.writeFileSync(entry.absPath, originalContent, 'utf-8');
+    
+    // Cleanup the backup file
+    try {
+      fs.unlinkSync(entry.backupFilePath);
+    } catch {}
+
+    // Remove from history list
+    history.splice(entryIndex, 1);
+    saveBackupHistory(history);
+
+    res.json({ status: 'success', file: entry.absPath, message: 'Rollback completed successfully' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', detail: (error as Error).message });
+  }
+});
+
 // Endpoint to execute SQL queries
 router.post('/sql', (req: Request, res: Response) => {
   try {
