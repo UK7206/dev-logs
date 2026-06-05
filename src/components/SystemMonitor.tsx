@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Cpu, HardDrive, Server, Clock, Activity, Terminal } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function SystemMonitor() {
   const [metrics, setMetrics] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<{ time: string; cpu: number; memory: number }[]>([]);
 
   useEffect(() => {
     fetchMetrics();
@@ -14,11 +16,23 @@ export default function SystemMonitor() {
 
   const fetchMetrics = async () => {
     try {
-      const res = await fetch('http://localhost:4445/api/system/metrics');
+      const res = await fetch('/api/system/metrics');
       const json = await res.json();
       if (json.status === 'success') {
         setMetrics(json.data);
         setError(null);
+
+        // Calculate CPU/Mem and add to history
+        const memPercent = json.data.memory.percent;
+        const loadAvg1 = json.data.cpu.loadAvg[0];
+        const cpuPercent = Math.min((loadAvg1 / json.data.cpu.cores) * 100, 100);
+        const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        setHistory(prev => {
+          const next = [...prev, { time: timeString, cpu: cpuPercent, memory: memPercent }];
+          if (next.length > 20) next.shift(); // keep last 20 points (40s of data)
+          return next;
+        });
       } else {
         setError(json.detail);
       }
@@ -72,8 +86,6 @@ export default function SystemMonitor() {
   const memoryPercent = metrics.memory.percent;
   const heapPercent = (metrics.processMemory.heapUsed / metrics.processMemory.heapTotal) * 100 || 0;
   const loadAvg1 = metrics.cpu.loadAvg[0];
-  
-  // A rough CPU percentage based on 1m load / cores (not perfect but good for visuals)
   const cpuPercent = Math.min((loadAvg1 / metrics.cpu.cores) * 100, 100);
 
   return (
@@ -190,7 +202,66 @@ export default function SystemMonitor() {
               </div>
             </div>
           </div>
+        </div>
 
+        {/* Real-time Telemetry History Chart */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-lg">
+          <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-4 flex items-center justify-between">
+            Real-Time Resource Telemetry
+            <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+          </h3>
+          <div className="h-64">
+            {history.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="telemetryCpu" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="telemetryMem" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(51, 65, 85, 0.3)" />
+                  <XAxis dataKey="time" stroke="#475569" tick={{ fontSize: 9, fill: '#64748b' }} />
+                  <YAxis stroke="#475569" tick={{ fontSize: 9, fill: '#64748b' }} domain={[0, 100]} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      border: '1px solid rgba(139, 92, 246, 0.3)',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      color: '#cbd5e1'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cpu"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#telemetryCpu)"
+                    name="CPU Load (%)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="memory"
+                    stroke="#a855f7"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#telemetryMem)"
+                    name="Memory Usage (%)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                Awaiting telemetry data...
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Node Process Detailed Memory */}

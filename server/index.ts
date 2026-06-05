@@ -209,6 +209,90 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/ai', aiRoutes);
 
+// Server-side Mock Interceptor catch-all handler
+app.all('/mock/*', async (req: Request, res: Response) => {
+  const mocksFile = path.join(process.cwd(), 'server', 'data', 'mocks.json');
+  let rules: any[] = [];
+  try {
+    if (fs.existsSync(mocksFile)) {
+      rules = JSON.parse(fs.readFileSync(mocksFile, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('[dev-logs] Error reading mock rules:', err);
+  }
+
+  const method = req.method;
+  const pathWithMock = req.path; // e.g. /mock/users
+  const subpath = req.path.replace(/^\/mock/, '') || '/'; // e.g. /users
+  const originalUrlWithMock = req.originalUrl; // e.g. /mock/users?active=true
+  const originalUrlWithoutMock = req.originalUrl.replace(/^\/mock/, '') || '/'; // e.g. /users?active=true
+
+  // Find a matching rule
+  let matchedRule: any = null;
+  for (const rule of rules) {
+    if (!rule.isActive) continue;
+    if (rule.method !== 'ALL' && rule.method.toUpperCase() !== method.toUpperCase()) continue;
+
+    // Check matching candidates
+    const candidates = [
+      subpath,
+      originalUrlWithoutMock,
+      pathWithMock,
+      originalUrlWithMock
+    ];
+
+    const isMatch = candidates.some(candidate => {
+      try {
+        const regex = new RegExp(rule.urlPattern);
+        return regex.test(candidate);
+      } catch {
+        return candidate.includes(rule.urlPattern);
+      }
+    });
+
+    if (isMatch) {
+      matchedRule = rule;
+      break;
+    }
+  }
+
+  if (matchedRule) {
+    // Simulate delay
+    if (matchedRule.delayMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, matchedRule.delayMs));
+    }
+
+    // Parse headers
+    let headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Mocked-By': 'dev-logs-server'
+    };
+    try {
+      if (matchedRule.responseHeaders) {
+        const parsed = JSON.parse(matchedRule.responseHeaders);
+        headers = { ...headers, ...parsed };
+      }
+    } catch (err) {
+      console.warn('[dev-logs] Failed to parse custom headers for rule:', matchedRule.name, err);
+    }
+
+    // Set headers
+    Object.entries(headers).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
+
+    // Send response
+    const status = matchedRule.responseStatus || 200;
+    const body = matchedRule.responseBody || '';
+    res.status(status).send(body);
+  } else {
+    res.status(404).json({
+      status: 'error',
+      detail: `No active mock rule matches this request path. Method: ${method}, Path: ${subpath}`
+    });
+  }
+});
+
 // Create data directories on startup
 const dataDir = path.join(__dirname, 'data');
 const dirs = [dataDir, attachmentsDir];

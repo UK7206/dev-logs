@@ -15,11 +15,16 @@ export default function ApiReplay() {
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayResult, setReplayResult] = useState<any>(null);
 
+  // Validation state
+  const [isHeadersJsonValid, setIsHeadersJsonValid] = useState(true);
+  const [headersErrorMsg, setHeadersErrorMsg] = useState('');
+  const [isBodyJsonValid, setIsBodyJsonValid] = useState(true);
+  const [bodyErrorMsg, setBodyErrorMsg] = useState('');
+
   useEffect(() => {
     // Load requests from global buffer periodically
     const updateRequests = () => {
       const buffer = (window as any).__networkBuffer || [];
-      // Only keep requests from the last few minutes, or just reverse them
       setRequests([...buffer].reverse());
     };
     
@@ -27,6 +32,39 @@ export default function ApiReplay() {
     const interval = setInterval(updateRequests, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  // Validation effects
+  useEffect(() => {
+    if (!editHeaders.trim() || editHeaders.trim() === '{}') {
+      setIsHeadersJsonValid(true);
+      setHeadersErrorMsg('');
+      return;
+    }
+    try {
+      JSON.parse(editHeaders);
+      setIsHeadersJsonValid(true);
+      setHeadersErrorMsg('');
+    } catch (e: any) {
+      setIsHeadersJsonValid(false);
+      setHeadersErrorMsg(e.message);
+    }
+  }, [editHeaders]);
+
+  useEffect(() => {
+    if (!editBody.trim()) {
+      setIsBodyJsonValid(true);
+      setBodyErrorMsg('');
+      return;
+    }
+    try {
+      JSON.parse(editBody);
+      setIsBodyJsonValid(true);
+      setBodyErrorMsg('');
+    } catch (e: any) {
+      setIsBodyJsonValid(false);
+      setBodyErrorMsg(e.message);
+    }
+  }, [editBody]);
 
   const handleSelect = (req: any) => {
     setSelectedRequest(req);
@@ -37,21 +75,46 @@ export default function ApiReplay() {
     setReplayResult(null);
   };
 
+  const formatHeaders = () => {
+    try {
+      const parsed = JSON.parse(editHeaders);
+      setEditHeaders(JSON.stringify(parsed, null, 2));
+      toast.success('Headers JSON formatted!');
+    } catch (e: any) {
+      toast.error(`Invalid Headers JSON: ${e.message}`);
+    }
+  };
+
+  const formatBody = () => {
+    try {
+      const parsed = JSON.parse(editBody);
+      setEditBody(JSON.stringify(parsed, null, 2));
+      toast.success('Request body formatted!');
+    } catch (e: any) {
+      toast.error(`Invalid Body JSON: ${e.message}`);
+    }
+  };
+
   const handleReplay = async () => {
     if (!editUrl) return;
+
+    if (!isHeadersJsonValid) {
+      toast.error(`Cannot send: Invalid Headers JSON (${headersErrorMsg})`);
+      return;
+    }
+
+    if (editMethod !== 'GET' && editMethod !== 'HEAD' && editBody.trim() && !isBodyJsonValid) {
+      toast.error(`Cannot send: Invalid Body JSON (${bodyErrorMsg})`);
+      return;
+    }
+
     setReplayLoading(true);
     setReplayResult(null);
     const start = Date.now();
     try {
       let parsedHeaders = {};
-      try {
-        if (editHeaders.trim()) {
-          parsedHeaders = JSON.parse(editHeaders);
-        }
-      } catch {
-        toast.error('Invalid JSON in headers');
-        setReplayLoading(false);
-        return;
+      if (editHeaders.trim()) {
+        parsedHeaders = JSON.parse(editHeaders);
       }
 
       const options: RequestInit = {
@@ -194,21 +257,55 @@ export default function ApiReplay() {
 
               <div className="grid grid-cols-2 gap-4 h-64">
                 <div className="flex flex-col">
-                  <label className="text-[11px] font-medium mb-1.5 flex items-center gap-1.5" style={{ color: '#94a3b8' }}>
-                    <Settings size={12} /> Headers (JSON)
-                  </label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-[11px] font-medium flex items-center gap-1.5" style={{ color: '#94a3b8' }}>
+                      <Settings size={12} /> Headers (JSON)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {!isHeadersJsonValid && (
+                        <span className="text-[9px] text-red-400 font-mono" title={headersErrorMsg}>Invalid JSON</span>
+                      )}
+                      <button
+                        onClick={formatHeaders}
+                        className="text-[10px] text-sky-400 hover:text-sky-300 font-semibold transition-colors"
+                      >
+                        Format
+                      </button>
+                    </div>
+                  </div>
                   <textarea
                     value={editHeaders}
                     onChange={e => setEditHeaders(e.target.value)}
                     className="flex-1 px-3 py-2 rounded outline-none text-[11px] font-mono resize-none"
                     spellCheck={false}
-                    style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(51,65,85,0.5)', color: '#cbd5e1' }}
+                    style={{
+                      background: 'rgba(15,23,42,0.6)',
+                      border: `1px solid ${isHeadersJsonValid ? 'rgba(51,65,85,0.5)' : 'rgba(239,68,68,0.5)'}`,
+                      color: '#cbd5e1'
+                    }}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-[11px] font-medium mb-1.5 flex items-center gap-1.5" style={{ color: '#94a3b8' }}>
-                    <Edit3 size={12} /> Request Body
-                  </label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-[11px] font-medium flex items-center gap-1.5" style={{ color: '#94a3b8' }}>
+                      <Edit3 size={12} /> Request Body
+                    </label>
+                    {editMethod !== 'GET' && editMethod !== 'HEAD' && (
+                      <div className="flex items-center gap-2">
+                        {editBody.trim() && (
+                          <span className={`text-[9px] font-mono ${isBodyJsonValid ? 'text-emerald-400' : 'text-red-400'}`} title={bodyErrorMsg}>
+                            {isBodyJsonValid ? '✓ JSON Valid' : '✗ Invalid JSON'}
+                          </span>
+                        )}
+                        <button
+                          onClick={formatBody}
+                          className="text-[10px] text-sky-400 hover:text-sky-300 font-semibold transition-colors"
+                        >
+                          Format
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <textarea
                     value={editBody}
                     onChange={e => setEditBody(e.target.value)}
@@ -217,7 +314,7 @@ export default function ApiReplay() {
                     disabled={editMethod === 'GET' || editMethod === 'HEAD'}
                     style={{ 
                       background: editMethod === 'GET' ? 'rgba(15,23,42,0.3)' : 'rgba(15,23,42,0.6)', 
-                      border: '1px solid rgba(51,65,85,0.5)', 
+                      border: `1px solid ${isBodyJsonValid ? 'rgba(51,65,85,0.5)' : 'rgba(239,68,68,0.5)'}`, 
                       color: editMethod === 'GET' ? '#64748b' : '#cbd5e1' 
                     }}
                     placeholder={editMethod === 'GET' ? "Body not allowed for GET requests" : "Enter request payload..."}

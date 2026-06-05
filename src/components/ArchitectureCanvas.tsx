@@ -82,7 +82,7 @@ export default function ArchitectureCanvas() {
   // Fetch Whiteboards
   const fetchWhiteboards = async () => {
     try {
-      const res = await fetch('http://localhost:4445/api/system/whiteboards');
+      const res = await fetch('/api/system/whiteboards');
       const json = await res.json();
       if (json.status === 'success') {
         setWhiteboards(json.data);
@@ -104,7 +104,7 @@ export default function ArchitectureCanvas() {
         name,
         data: { nodes, edges }
       };
-      const res = await fetch('http://localhost:4445/api/system/whiteboards', {
+      const res = await fetch('/api/system/whiteboards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -141,7 +141,7 @@ export default function ArchitectureCanvas() {
   const deleteWhiteboard = async (id: string) => {
     if (!confirm('Are you sure you want to delete this canvas?')) return;
     try {
-      await fetch(`http://localhost:4445/api/system/whiteboards/${id}`, { method: 'DELETE' });
+      await fetch(`/api/system/whiteboards/${id}`, { method: 'DELETE' });
       toast.success('Deleted');
       if (currentId === id) createNew();
       fetchWhiteboards();

@@ -80,10 +80,9 @@ export interface Stats {
 export interface ChangelogEntry {
   id: string;
   request_id: string;
-  request_title: string;
-  field: string;
-  old_value: string;
-  new_value: string;
-  changed_by: string;
-  changed_at: string;
+  change_type: string;
+  summary: string;
+  details?: Record<string, any>;
+  author: string;
+  timestamp: string;
 }

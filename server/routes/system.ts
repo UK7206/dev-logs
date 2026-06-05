@@ -433,4 +433,79 @@ router.delete('/whiteboards/:id', (req: Request, res: Response) => {
   }
 });
 
+// Helper to recursively search files for a query string
+function searchInDirectory(dir: string, query: string, maxResults = 50): any[] {
+  const results: any[] = [];
+  const queryLower = query.toLowerCase();
+  
+  function traverse(currentDir: string) {
+    if (results.length >= maxResults) return;
+    
+    let items;
+    try {
+      items = fs.readdirSync(currentDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    
+    for (const item of items) {
+      if (results.length >= maxResults) return;
+      
+      const fullPath = path.join(currentDir, item.name);
+      const relativePath = path.relative(process.cwd(), fullPath);
+      
+      // Ignore common noise folders
+      if (['node_modules', 'dist', '.git', 'overlay', 'server/data', 'docs', 'server/build.ts'].some(ignored => relativePath.startsWith(ignored) || item.name === ignored)) {
+        continue;
+      }
+      
+      if (item.isDirectory()) {
+        traverse(fullPath);
+      } else if (item.isFile()) {
+        const ext = path.extname(item.name).toLowerCase();
+        const textExts = ['.ts', '.tsx', '.js', '.jsx', '.json', '.html', '.css', '.md', '.txt', '.yml', '.yaml'];
+        if (!textExts.includes(ext)) continue;
+        
+        try {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          if (content.toLowerCase().includes(queryLower)) {
+            const lines = content.split('\n');
+            lines.forEach((lineText, idx) => {
+              if (lineText.toLowerCase().includes(queryLower) && results.length < maxResults) {
+                results.push({
+                  file: relativePath,
+                  absPath: fullPath.replace(/\\/g, '/'), // consistency in slashes
+                  line: idx + 1,
+                  content: lineText.trim(),
+                });
+              }
+            });
+          }
+        } catch {
+          // ignore unreadable files
+        }
+      }
+    }
+  }
+  
+  traverse(dir);
+  return results;
+}
+
+// Search Endpoint
+router.get('/search', (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query || query.trim().length < 2) {
+      res.status(400).json({ status: 'error', detail: 'Query parameter "q" of at least 2 chars is required' });
+      return;
+    }
+    
+    const results = searchInDirectory(process.cwd(), query);
+    res.json({ status: 'success', results });
+  } catch (error) {
+    res.status(500).json({ status: 'error', detail: (error as Error).message });
+  }
+});
+
 export default router;

@@ -42,8 +42,7 @@ export class MockEngine {
     localStorage.setItem('devLogs_mockRules', JSON.stringify(this.rules));
     
     // Sync with backend
-    const port = window.location.port === '4444' ? '4445' : window.location.port;
-    fetch(`http://${window.location.hostname}:${port}/api/system/mocks`, {
+    fetch('/api/system/mocks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.rules)
@@ -58,8 +57,7 @@ export class MockEngine {
       }
       
       // Try to load from backend
-      const port = window.location.port === '4444' ? '4445' : window.location.port;
-      const res = await fetch(`http://${window.location.hostname}:${port}/api/system/mocks`);
+      const res = await fetch('/api/system/mocks');
       if (res.ok) {
         const data = await res.json();
         if (data.mocks && data.mocks.length > 0) {

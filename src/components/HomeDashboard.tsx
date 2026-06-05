@@ -17,9 +17,11 @@ import {
   ChevronRight,
   Sparkles,
   X,
+  HelpCircle,
 } from 'lucide-react';
 import { fetchRequests, subscribeToEvents } from '../lib/api';
 import type { DevRequest } from '../types';
+import ShortcutsHelpModal from './ShortcutsHelpModal';
 
 interface HomeDashboardProps {
   onClose: () => void;
@@ -219,6 +221,7 @@ function QuickAction({
 // Main Home Dashboard
 // ---------------------------------------------------------------------------
 export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOpenInsight }: HomeDashboardProps) {
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const { data: requests = [], refetch } = useQuery({
     queryKey: ['requests-home'],
     queryFn: () => fetchRequests(),
@@ -307,6 +310,16 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
               {stats.critical} Critical
             </motion.div>
           )}
+          <button
+            onClick={() => setShowShortcuts(true)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: '#475569' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#a855f7'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
+            title="Keyboard Shortcuts Guide"
+          >
+            <HelpCircle size={16} />
+          </button>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
@@ -471,6 +484,7 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
           </div>
         </div>
       </div>
+      <ShortcutsHelpModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   );
 }

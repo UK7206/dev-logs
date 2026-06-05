@@ -11,16 +11,19 @@ import DatabaseExplorer from './DatabaseExplorer';
 import SystemMonitor from './SystemMonitor';
 import DevToolkit from './DevToolkit';
 import AgentStudio from './AgentStudio';
-import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook, RefreshCcw, Database, HardDrive, Wrench, Share2, BrainCircuit } from 'lucide-react';
+import { X, Activity, Server, Code, TerminalSquare, Globe, Webhook, RefreshCcw, Database, HardDrive, Wrench, Share2, BrainCircuit, HelpCircle, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ShortcutsHelpModal from './ShortcutsHelpModal';
+import ActivityLog from './ActivityLog';
 
 interface Props {
   onClose: () => void;
 }
 
 export default function InsightEngineLayout({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'agent' | 'canvas' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook' | 'replay' | 'db' | 'sys' | 'tools'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'agent' | 'canvas' | 'mock' | 'tests' | 'exec' | 'env' | 'webhook' | 'replay' | 'db' | 'sys' | 'tools' | 'logs'>('analytics');
   const [shouldCrash, setShouldCrash] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   if (shouldCrash) {
     throw new Error('Simulated Application Crash for DevLogsErrorBoundary');
@@ -29,6 +32,7 @@ export default function InsightEngineLayout({ onClose }: Props) {
   const renderTabContent = () => {
     switch(activeTab) {
       case 'analytics': return <AnalyticsDashboard />;
+      case 'logs': return <ActivityLog />;
       case 'agent': return <AgentStudio />;
       case 'canvas': return <ArchitectureCanvas />;
       case 'mock': return <MockStudio />;
@@ -65,6 +69,7 @@ export default function InsightEngineLayout({ onClose }: Props) {
           <div className="flex gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800 shrink-0">
             {[
               { id: 'analytics', icon: Activity, label: 'Analytics', color: '' },
+              { id: 'logs', icon: History, label: 'Activity Log', color: 'text-yellow-400 font-semibold' },
               { id: 'agent', icon: BrainCircuit, label: 'AI Agent Studio', color: 'text-purple-400 font-semibold' },
               { id: 'canvas', icon: Share2, label: 'Architecture', color: 'text-pink-400' },
               { id: 'mock', icon: Server, label: 'Mock Studio', color: '' },
@@ -104,6 +109,13 @@ export default function InsightEngineLayout({ onClose }: Props) {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowShortcuts(true)}
+            className="p-2 bg-gray-900 hover:bg-purple-500/20 hover:text-purple-400 text-gray-400 rounded-lg transition-colors group"
+            title="Keyboard Shortcuts Guide"
+          >
+            <HelpCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          </button>
+          <button
             onClick={() => setShouldCrash(true)}
             className="p-2 text-xs font-bold bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors border border-red-500/30"
           >
@@ -133,6 +145,7 @@ export default function InsightEngineLayout({ onClose }: Props) {
           </motion.div>
         </AnimatePresence>
       </div>
+      <ShortcutsHelpModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </motion.div>
   );
 }

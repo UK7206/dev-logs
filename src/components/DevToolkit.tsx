@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Wrench, Braces, Binary, Key, RefreshCw, Copy, Check } from 'lucide-react';
+import { Wrench, Braces, Binary, Key, RefreshCw, Copy, Check, Search, FileCode, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DevToolkit() {
-  const [activeTool, setActiveTool] = useState<'json' | 'base64' | 'jwt'>('json');
+  const [activeTool, setActiveTool] = useState<'json' | 'base64' | 'jwt' | 'search'>('json');
 
   const tools = [
     { id: 'json', icon: Braces, label: 'JSON Formatter' },
     { id: 'base64', icon: Binary, label: 'Base64 Encoder' },
     { id: 'jwt', icon: Key, label: 'JWT Decoder' },
+    { id: 'search', icon: Search, label: 'Code Search' },
   ];
 
   return (
@@ -50,6 +51,7 @@ export default function DevToolkit() {
             {activeTool === 'json' && <JsonFormatter />}
             {activeTool === 'base64' && <Base64Tool />}
             {activeTool === 'jwt' && <JwtDecoder />}
+            {activeTool === 'search' && <CodeSearch />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -259,6 +261,224 @@ function JwtDecoder() {
             {payload || '...'}
           </pre>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CodeSearch() {
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
+  const [error, setError] = useState('');
+  
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim().length < 2) {
+      setError('Search query must be at least 2 characters');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/system/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        setResults(data.results);
+      } else {
+        setError(data.detail || 'Search failed');
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectResult = async (result: any) => {
+    setSelectedFile(result.file);
+    setSelectedLine(result.line);
+    setLoadingFile(true);
+    try {
+      const res = await fetch(`/api/system/cat?file=${encodeURIComponent(result.file)}`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        setFileContent(data.content);
+        // Scroll target line into view after a brief timeout to let DOM render
+        setTimeout(() => {
+          const el = document.getElementById(`line-${result.line}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      } else {
+        setFileContent(`Error loading file: ${data.detail}`);
+      }
+    } catch (err) {
+      setFileContent(`Error loading file: ${(err as Error).message}`);
+    } finally {
+      setLoadingFile(false);
+    }
+  };
+
+  const copyFileToClipboard = () => {
+    navigator.clipboard.writeText(fileContent);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Left panel: Search Form & Results */}
+      <div className="w-[380px] border-r border-gray-800 bg-gray-950 flex flex-col h-full shrink-0">
+        <div className="p-4 border-b border-gray-800 shrink-0">
+          <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+            <Search className="w-5 h-5 text-amber-500" />
+            Workspace Code Search
+          </h2>
+          <form onSubmit={handleSearch} className="relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search files (e.g. mockEngine)..."
+              className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-3 pr-10 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+            </button>
+          </form>
+          {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+        </div>
+
+        {/* Results List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+          {loading && results.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-sm">
+              <Loader2 className="w-8 h-8 animate-spin text-amber-500 mb-2" />
+              Searching workspace files...
+            </div>
+          )}
+          {!loading && results.length === 0 && query && (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              No matches found for "{query}"
+            </div>
+          )}
+          {results.map((res, index) => {
+            const isSelected = selectedFile === res.file && selectedLine === res.line;
+            return (
+              <button
+                key={`${res.file}-${res.line}-${index}`}
+                onClick={() => handleSelectResult(res)}
+                className={`w-full text-left p-3 rounded-lg border text-xs transition-all flex flex-col gap-1.5 ${
+                  isSelected
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    : 'bg-gray-900/50 hover:bg-gray-800/50 border-gray-800/60 text-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full font-medium">
+                  <span className="truncate text-gray-200" title={res.file}>
+                    {res.file.split('/').pop()}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-mono scale-90">
+                    Line {res.line}
+                  </span>
+                </div>
+                <div className="text-gray-400 truncate font-mono text-[11px] bg-black/30 px-1.5 py-1 rounded w-full border border-gray-900">
+                  {res.content}
+                </div>
+                <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                  {res.file}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Right panel: Code Viewer */}
+      <div className="flex-1 flex flex-col h-full bg-gray-950 overflow-hidden">
+        {selectedFile ? (
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            {/* Toolbar */}
+            <div className="px-4 py-3 bg-gray-900/60 border-b border-gray-800/80 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <FileCode className="w-5 h-5 text-blue-400" />
+                <div>
+                  <h3 className="text-sm font-semibold text-white leading-tight">
+                    {selectedFile.split('/').pop()}
+                  </h3>
+                  <p className="text-[11px] text-gray-400 leading-none mt-0.5">{selectedFile}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyFileToClipboard}
+                  className="p-1.5 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors"
+                  title="Copy File"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4.5 h-4.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Code Body */}
+            <div className="flex-1 overflow-auto font-mono text-[13px] leading-relaxed bg-gray-950 relative">
+              {loadingFile ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-950/80">
+                  <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                </div>
+              ) : (
+                <div className="py-4 select-text min-w-max">
+                  {fileContent.split('\n').map((line, idx) => {
+                    const lineNum = idx + 1;
+                    const isMatched = lineNum === selectedLine;
+                    return (
+                      <div
+                        key={lineNum}
+                        id={`line-${lineNum}`}
+                        className={`flex items-start px-4 transition-colors ${
+                          isMatched
+                            ? 'bg-amber-500/15 border-l-4 border-amber-500 text-amber-300 font-semibold'
+                            : 'hover:bg-gray-900/40 border-l-4 border-transparent text-gray-400'
+                        }`}
+                      >
+                        <span className="w-12 select-none text-right pr-4 text-gray-600 font-mono text-[11px]">
+                          {lineNum}
+                        </span>
+                        <pre className="m-0 whitespace-pre font-mono text-gray-200">
+                          {line || ' '}
+                        </pre>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8 text-center">
+            <FileCode className="w-16 h-16 text-gray-700 mb-4" />
+            <h3 className="text-lg font-medium text-gray-300 mb-1">No File Selected</h3>
+            <p className="text-sm text-gray-500 max-w-sm">
+              Use the search box on the left to find references in your codebase, then select a match to view its file content here.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

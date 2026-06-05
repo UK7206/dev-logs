@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Database, Table as TableIcon, AlertCircle, RefreshCw } from 'lucide-react';
+import { Play, Database, Table as TableIcon, AlertCircle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function DatabaseExplorer() {
   const [query, setQuery] = useState('SELECT * FROM requests ORDER BY created_at DESC LIMIT 10;');
@@ -8,6 +9,8 @@ export default function DatabaseExplorer() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<string[]>([]);
+  const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
+  const [tableColumns, setTableColumns] = useState<Record<string, { name: string; type: string }[]>>({});
 
   useEffect(() => {
     fetchTables();
@@ -15,7 +18,7 @@ export default function DatabaseExplorer() {
 
   const fetchTables = async () => {
     try {
-      const res = await fetch('http://localhost:4445/api/system/sql', {
+      const res = await fetch('/api/system/sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: "SELECT name FROM sqlite_master WHERE type='table';" })
@@ -29,6 +32,35 @@ export default function DatabaseExplorer() {
     }
   };
 
+  const fetchTableColumns = async (tableName: string) => {
+    if (tableColumns[tableName]) return;
+    try {
+      const res = await fetch('/api/system/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: `PRAGMA table_info(${tableName});` })
+      });
+      const json = await res.json();
+      if (json.status === 'success' && Array.isArray(json.data)) {
+        setTableColumns(prev => ({
+          ...prev,
+          [tableName]: json.data.map((col: any) => ({ name: col.name, type: col.type }))
+        }));
+      }
+    } catch (err) {
+      console.error(`Failed to fetch columns for ${tableName}`, err);
+    }
+  };
+
+  const toggleTableExpand = async (tableName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextVal = !expandedTables[tableName];
+    setExpandedTables(prev => ({ ...prev, [tableName]: nextVal }));
+    if (nextVal) {
+      await fetchTableColumns(tableName);
+    }
+  };
+
   const executeQuery = async (sql: string = query) => {
     setLoading(true);
     setError(null);
@@ -36,7 +68,7 @@ export default function DatabaseExplorer() {
     setInfo(null);
     
     try {
-      const res = await fetch('http://localhost:4445/api/system/sql', {
+      const res = await fetch('/api/system/sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: sql })
@@ -59,6 +91,43 @@ export default function DatabaseExplorer() {
     }
   };
 
+  const exportToJSON = () => {
+    if (!results || results.length === 0) return;
+    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'query_results.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('JSON export downloaded');
+  };
+
+  const exportToCSV = () => {
+    if (!results || results.length === 0) return;
+    const headers = Object.keys(results[0]).join(',');
+    const rows = results.map(row => 
+      Object.values(row).map(val => {
+        let str = val === null ? '' : String(val);
+        str = str.replace(/"/g, '""'); // Escape double quotes
+        return `"${str}"`;
+      }).join(',')
+    );
+    const csvContent = [headers, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'query_results.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('CSV export downloaded');
+  };
+
   return (
     <div className="flex h-full text-gray-200">
       {/* Sidebar with Tables */}
@@ -79,17 +148,35 @@ export default function DatabaseExplorer() {
           ) : (
             tables.map(t => (
               <div key={t} className="mb-1">
-                <button
-                  onClick={() => {
-                    const q = `SELECT * FROM ${t} LIMIT 50;`;
-                    setQuery(q);
-                    executeQuery(q);
-                  }}
-                  className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-800 text-sm flex items-center gap-2 group"
-                >
-                  <TableIcon className="w-4 h-4 text-gray-500 group-hover:text-blue-400" />
-                  {t}
-                </button>
+                <div className="flex items-center justify-between rounded hover:bg-gray-800 text-sm group">
+                  <button
+                    onClick={() => {
+                      const q = `SELECT * FROM ${t} LIMIT 50;`;
+                      setQuery(q);
+                      executeQuery(q);
+                    }}
+                    className="flex-1 text-left px-2 py-1.5 flex items-center gap-2 min-w-0"
+                  >
+                    <TableIcon className="w-4 h-4 text-gray-500 group-hover:text-blue-400 shrink-0" />
+                    <span className="truncate">{t}</span>
+                  </button>
+                  <button
+                    onClick={(e) => toggleTableExpand(t, e)}
+                    className="p-1 px-2 text-xs text-gray-500 hover:text-gray-300 shrink-0 transition-colors"
+                  >
+                    {expandedTables[t] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                {expandedTables[t] && tableColumns[t] && (
+                  <div className="pl-6 pr-2 py-1 space-y-1 border-l border-gray-800 ml-4">
+                    {tableColumns[t].map(col => (
+                      <div key={col.name} className="text-[10px] text-gray-500 font-mono flex justify-between gap-2">
+                        <span className="truncate text-gray-400" title={col.name}>{col.name}</span>
+                        <span className="text-gray-600 shrink-0">{col.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -178,8 +265,24 @@ export default function DatabaseExplorer() {
                   </table>
                 </div>
               )}
-              <div className="p-2 bg-gray-950 border-t border-gray-800 text-xs text-gray-500 flex justify-between">
+              <div className="p-2 bg-gray-950 border-t border-gray-800 text-xs text-gray-500 flex justify-between items-center">
                 <span>{results.length} row(s) returned</span>
+                {results.length > 0 && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={exportToJSON}
+                      className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[11px] font-medium transition-colors"
+                    >
+                      Export JSON
+                    </button>
+                    <button
+                      onClick={exportToCSV}
+                      className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[11px] font-medium transition-colors"
+                    >
+                      Export CSV
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

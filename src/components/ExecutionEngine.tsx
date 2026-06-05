@@ -30,7 +30,7 @@ export default function ExecutionEngine() {
 
   const fetchFiles = async (dirPath: string) => {
     try {
-      const res = await fetch(`http://localhost:4445/api/system/ls?dir=${encodeURIComponent(dirPath)}`);
+      const res = await fetch(`/api/system/ls?dir=${encodeURIComponent(dirPath)}`);
       const data = await res.json();
       if (data.status === 'success') {
         setCurrentDir(data.currentDir);
@@ -45,7 +45,7 @@ export default function ExecutionEngine() {
 
   const fetchFileContent = async (filePath: string) => {
     try {
-      const res = await fetch(`http://localhost:4445/api/system/cat?file=${encodeURIComponent(filePath)}`);
+      const res = await fetch(`/api/system/cat?file=${encodeURIComponent(filePath)}`);
       const data = await res.json();
       if (data.status === 'success') {
         setActiveFile(filePath);
@@ -66,7 +66,7 @@ export default function ExecutionEngine() {
     setIsExecuting(true);
 
     try {
-      const res = await fetch('http://localhost:4445/api/system/exec', {
+      const res = await fetch('/api/system/exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command, cwd: currentDir })

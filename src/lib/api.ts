@@ -298,10 +298,10 @@ export async function fetchChangelog(
   if (limit) params.set('limit', String(limit));
 
   const qs = params.toString();
-  const data = await request<{ changelog: ChangelogEntry[] }>(
+  const data = await request<{ changes: ChangelogEntry[] }>(
     `/requests/changelog${qs ? `?${qs}` : ''}`,
   );
-  return data.changelog;
+  return data.changes;
 }
 
 // ---------- Stats ----------
