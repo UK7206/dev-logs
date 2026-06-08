@@ -226,7 +226,7 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
         <motion.div
           initial={{ opacity: 0, scale: 0.92, y: 20 }}
           animate={isMinimized
-            ? { opacity: 1, scale: 1, y: 0, height: 48 }
+            ? { opacity: 1, scale: 1, y: 0, height: 50 }
             : { opacity: 1, scale: 1, y: 0, height: size.height }
           }
           exit={{ opacity: 0, scale: 0.92, y: 20 }}
@@ -240,11 +240,14 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
             zIndex: Z_INDEX,
             overflow: 'visible',
           }}
-          className="rounded-xl shadow-2xl flex flex-col"
+          className="rounded-xl shadow-2xl flex flex-col group page-transition"
         >
+          {/* Gradient accent line at the top */}
+          <div className="h-[2px] w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-t-xl z-20 shrink-0" />
+
           {/* Panel background */}
           <div
-            className="absolute inset-0 rounded-xl pointer-events-none"
+            className="absolute inset-0 rounded-xl pointer-events-none transition-all duration-300"
             style={{
               background: 'rgba(10, 15, 30, 0.97)',
               backdropFilter: 'blur(20px)',
@@ -253,6 +256,11 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
               zIndex: 0,
             }}
           />
+
+          {/* Subtle glass shimmer on hover */}
+          <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none z-0">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+          </div>
 
           {/* Resize edges */}
           {!isMinimized && resizeEdges.map((edge) => (
@@ -266,18 +274,17 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
           {/* Header bar */}
           <div
             onMouseDown={onDragStart}
-            className="relative flex items-center justify-between px-3 h-12 flex-shrink-0 select-none"
+            className="relative flex items-center justify-between px-3 h-12 flex-shrink-0 select-none z-10"
             style={{
               cursor: dragging ? 'grabbing' : 'grab',
               borderBottom: '1px solid rgba(6, 182, 212, 0.08)',
               background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.04) 0%, transparent 100%)',
-              zIndex: 1,
             }}
           >
             {/* Left: icon + title */}
             <div className="flex items-center gap-2">
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 animate-float"
                 style={{
                   background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.05))',
                   border: '1px solid rgba(6,182,212,0.25)',
@@ -285,14 +292,14 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
               >
                 <Bug size={14} color="#22d3ee" />
               </div>
-              <span style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 600 }}>Dev Logs</span>
+              <span style={{ color: '#e2e8f0', fontSize: 13, fontWeight: 700, letterSpacing: '0.025em' }}>Dev Logs</span>
             </div>
 
             {/* Center: tabs */}
             <div className="flex gap-1 bg-[rgba(15,23,42,0.6)] p-0.5 rounded-lg border border-[rgba(51,65,85,0.4)]">
               <button
                 onClick={() => { setActiveTab('submit'); setSelectedRequestId(null); }}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-colors"
                 style={{
                   background: activeTab === 'submit' ? 'rgba(6,182,212,0.15)' : 'transparent',
                   color: activeTab === 'submit' ? '#22d3ee' : '#64748b',
@@ -302,7 +309,7 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
               </button>
               <button
                 onClick={() => handleSwitchToRequests()}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-colors"
                 style={{
                   background: activeTab === 'requests' ? 'rgba(6,182,212,0.15)' : 'transparent',
                   color: activeTab === 'requests' ? '#22d3ee' : '#64748b',
@@ -314,13 +321,14 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
 
             {/* Right: controls */}
             <div className="flex items-center gap-1.5">
-              <div className="flex items-center gap-1.5 mr-2">
-                <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.5)' }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <div className="flex items-center gap-1.5 mr-1 select-none">
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-950/80 border border-slate-800 focus-within:border-cyan-500/40 transition-colors shadow-inner">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                   <input
                     type="text"
-                    placeholder="Your Name"
-                    className="bg-transparent outline-none text-[10px] w-16 text-gray-300 placeholder-gray-500 font-medium"
+                    placeholder="Author"
+                    title="Setting your author name will automatically tag your submitted logs"
+                    className="bg-transparent outline-none text-[10px] w-14 text-slate-300 placeholder-slate-600 font-semibold focus:w-20 transition-all"
                     defaultValue={localStorage.getItem('devLogs_author') || ''}
                     onBlur={(e) => {
                       const val = e.target.value.trim();
@@ -369,6 +377,7 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
               </button>
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
+                title={isMinimized ? "Maximize Panel" : "Minimize Panel"}
                 className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
                 style={{ color: '#94a3b8' }}
                 onMouseEnter={e => { e.currentTarget.style.color = '#e2e8f0'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
@@ -378,6 +387,7 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
               </button>
               <button
                 onClick={onClose}
+                title="Close Panel"
                 className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
                 style={{ color: '#94a3b8' }}
                 onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)' }}
@@ -390,7 +400,7 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
 
           {/* Body */}
           {!isMinimized && (
-            <div className="relative flex-1 overflow-hidden" style={{ minHeight: 0, zIndex: 1 }}>
+            <div className="relative flex-1 overflow-hidden z-10" style={{ minHeight: 0 }}>
               {activeTab === 'submit' && (
                 <SubmitTab
                   onOpenCapture={onOpenCapture}
@@ -412,4 +422,5 @@ export default function FloatingPanel({ isOpen, onClose, onOpenCapture }: Floati
       )}
     </AnimatePresence>
   );
+
 }

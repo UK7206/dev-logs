@@ -13,11 +13,13 @@ import { STATUS_BADGE, PRIORITY_BADGE } from './RequestList';
 
 // Kanban columns configuration
 const COLUMNS = [
-  { id: 'submitted', label: 'Submitted', color: '#eab308', bgColor: 'rgba(234,179,8,0.1)' },
-  { id: 'in_progress', label: 'In Progress', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.1)' },
-  { id: 'in_testing', label: 'Testing', color: '#a855f7', bgColor: 'rgba(168,85,247,0.1)' },
-  { id: 'completed', label: 'Completed', color: '#22c55e', bgColor: 'rgba(34,197,94,0.1)' },
+  { id: 'submitted', label: 'Submitted', color: '#eab308', bgColor: 'rgba(234,179,8,0.06)' },
+  { id: 'in_progress', label: 'In Progress', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.06)' },
+  { id: 'in_testing', label: 'Testing', color: '#a855f7', bgColor: 'rgba(168,85,247,0.06)' },
+  { id: 'completed', label: 'Completed', color: '#22c55e', bgColor: 'rgba(34,197,94,0.06)' },
 ];
+
+const WIP_LIMIT = 5;
 
 export default function KanbanDashboard({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -41,6 +43,17 @@ export default function KanbanDashboard({ onClose }: { onClose: () => void }) {
     });
     return () => unsubscribe();
   }, [queryClient]);
+
+  // Esc key keyboard shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   // Extract all unique tags
   const allTags = useMemo(() => {
@@ -129,17 +142,19 @@ export default function KanbanDashboard({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-[#0a0f1e] text-slate-200 flex flex-col font-sans">
+    <div className="fixed inset-0 z-[99999] bg-[#0a0f1e] text-slate-200 flex flex-col font-sans page-transition">
       {/* Header */}
-      <header className="h-16 border-b border-cyan-500/20 bg-slate-900/50 flex items-center justify-between px-6 shrink-0 backdrop-blur-md">
+      <header className="h-16 border-b border-cyan-500/20 bg-slate-900/50 flex items-center justify-between px-6 shrink-0 backdrop-blur-md relative z-20 shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 flex items-center justify-center animate-float">
             <LayoutDashboard size={16} className="text-cyan-400" />
           </div>
-          <h1 className="text-lg font-semibold tracking-wide text-slate-100">Dev Logs <span className="text-slate-500 font-normal">Kanban</span></h1>
+          <h1 className="text-lg font-semibold tracking-wide text-slate-100">
+            Dev Logs <span className="text-slate-500 font-normal">Kanban</span>
+          </h1>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <div className="relative group">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
             <input 
@@ -147,12 +162,20 @@ export default function KanbanDashboard({ onClose }: { onClose: () => void }) {
               placeholder="Search board..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-64 bg-slate-800/50 border border-slate-700 rounded-full py-1.5 pl-9 pr-4 text-sm outline-none focus:border-cyan-500/50 focus:bg-slate-800/80 transition-all"
+              className="w-56 bg-slate-800/40 border border-slate-700 rounded-full py-1.5 pl-9 pr-4 text-xs outline-none focus:border-cyan-500/50 focus:bg-slate-800/80 transition-all focus:w-64"
             />
           </div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-500 text-slate-300 hover:text-white transition-all shadow-sm"
+          >
+            <span>Back to Home</span>
+            <ChevronRight size={12} className="opacity-60" />
+          </button>
           <button 
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            title="Close (Esc)"
           >
             <X size={18} />
           </button>
@@ -221,6 +244,7 @@ export default function KanbanDashboard({ onClose }: { onClose: () => void }) {
                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
               
               const isOver = dragOverCol === col.id;
+              const isOverLimit = colRequests.length > WIP_LIMIT && col.id !== 'completed';
 
               return (
                 <div 
@@ -234,10 +258,30 @@ export default function KanbanDashboard({ onClose }: { onClose: () => void }) {
                   <div className="flex items-center justify-between mb-4 px-1">
                     <h2 className="font-semibold text-slate-200 flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: col.color }} />
-                      {col.label}
-                      <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">
+                      <span>{col.label}</span>
+                      
+                      {/* Bouncing Animated Badge */}
+                      <motion.span 
+                        key={colRequests.length}
+                        initial={{ scale: 0.6, y: -4 }}
+                        animate={{ scale: 1, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 12 }}
+                        className="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-bold"
+                      >
                         {colRequests.length}
-                      </span>
+                      </motion.span>
+
+                      {/* WIP Limit warning indicator */}
+                      {isOverLimit && (
+                        <motion.span 
+                          animate={{ scale: [1, 1.08, 1] }} 
+                          transition={{ repeat: Infinity, duration: 1.5 }}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold flex items-center gap-0.5 shadow-sm"
+                          title={`WIP Limit Exceeded! (Max ${WIP_LIMIT})`}
+                        >
+                          <AlertCircle size={10} /> Limit {WIP_LIMIT}
+                        </motion.span>
+                      )}
                     </h2>
                     <button className="text-slate-500 hover:text-slate-300 transition-colors">
                       <Plus size={16} />
@@ -246,19 +290,36 @@ export default function KanbanDashboard({ onClose }: { onClose: () => void }) {
 
                   {/* Column Body */}
                   <div 
-                    className="flex-1 overflow-y-auto rounded-xl p-2.5 space-y-3 transition-colors duration-200"
+                    className="flex-1 overflow-y-auto rounded-xl p-2.5 space-y-3 transition-all duration-300 relative border"
                     style={{ 
                       backgroundColor: isOver ? col.bgColor : 'rgba(15,23,42,0.4)',
-                      border: `1px solid ${isOver ? col.color : 'rgba(30,41,59,0.5)'}`
+                      borderColor: isOver ? col.color : (isOverLimit ? 'rgba(245,158,11,0.3)' : 'rgba(30,41,59,0.5)'),
+                      boxShadow: isOver ? `0 0 15px -3px ${col.color}20` : 'none',
                     }}
                   >
+                    {/* Glowing drop zone indicator at top of columns during dragover */}
+                    {isOver && (
+                      <motion.div
+                        layoutId={`drop-indicator-${col.id}`}
+                        className="absolute top-1 left-2.5 right-2.5 h-1 rounded-full z-10"
+                        style={{
+                          backgroundColor: col.color,
+                          boxShadow: `0 0 10px ${col.color}, 0 0 20px ${col.color}`,
+                        }}
+                      />
+                    )}
+
                     {isLoading ? (
                       <div className="space-y-3">
                         {[1, 2].map(i => <div key={i} className="h-24 bg-slate-800/50 rounded-lg animate-pulse" />)}
                       </div>
                     ) : colRequests.length === 0 ? (
-                      <div className="h-24 flex items-center justify-center border border-dashed border-slate-700/50 rounded-lg text-slate-600 text-sm">
-                        Drop requests here
+                      <div className="h-32 flex flex-col items-center justify-center border border-dashed border-slate-800 bg-slate-950/10 rounded-xl text-slate-500 text-xs gap-2.5 p-4 text-center select-none">
+                        <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center border border-slate-800 text-slate-500">
+                          <CheckCircle2 size={13} className="opacity-30" />
+                        </div>
+                        <span className="font-semibold text-slate-400">Column is Empty</span>
+                        <span className="text-[10px] text-slate-600 max-w-[150px] leading-relaxed">No requests in this stage. Drag items here.</span>
                       </div>
                     ) : (
                       <AnimatePresence>
@@ -308,8 +369,8 @@ function KanbanCard({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1 } }}
       draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onDragStart={onDragStart as any}
+      onDragEnd={onDragEnd as any}
       className={`relative group bg-slate-800/80 rounded-xl p-3.5 border cursor-grab active:cursor-grabbing hover:shadow-lg transition-all ${
         isDragging ? 'opacity-40 scale-95 shadow-none border-dashed border-slate-500' : 'border-slate-700 hover:border-slate-600 hover:-translate-y-0.5'
       }`}

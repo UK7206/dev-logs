@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import {
   Camera,
   Send,
@@ -111,6 +112,29 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
   const [aiTitle, setAiTitle] = useState('');
+  const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string; scale: number; rotation: number; delay: number }[]>([]);
+
+  useEffect(() => {
+    if (submitted) {
+      const colors = ['#22c55e', '#06b6d4', '#a855f7', '#eab308', '#ec4899'];
+      const newParticles = Array.from({ length: 45 }).map((_, i) => {
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = 50 + Math.random() * 180;
+        return {
+          id: i,
+          x: Math.cos(angle) * velocity,
+          y: Math.sin(angle) * velocity - 20,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          scale: 0.3 + Math.random() * 0.7,
+          rotation: Math.random() * 360,
+          delay: Math.random() * 0.2,
+        };
+      });
+      setParticles(newParticles);
+    } else {
+      setParticles([]);
+    }
+  }, [submitted]);
 
   const handleRecordVideo = async () => {
     if (isRecording) {
@@ -315,29 +339,141 @@ export default function SubmitTab({ onOpenCapture, onSwitchToRequests }: SubmitT
 
   if (submitted) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)' }}>
-          <CheckCircle2 size={32} color="#22c55e" />
+      <div className="flex flex-col items-center justify-center h-full gap-5 p-6 text-center relative overflow-hidden bg-slate-950/20 rounded-xl">
+        {/* Confetti particles */}
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+          {particles.map((p) => (
+            <motion.div
+              key={p.id}
+              initial={{ x: 0, y: 0, scale: 0, opacity: 1, rotate: 0 }}
+              animate={{
+                x: p.x,
+                y: [0, p.y * 0.6, p.y, p.y + 120],
+                scale: [0, p.scale, p.scale, 0],
+                opacity: [1, 1, 0.8, 0],
+                rotate: p.rotation * 3,
+              }}
+              transition={{
+                duration: 1.5 + Math.random() * 1.0,
+                ease: "easeOut",
+                delay: p.delay,
+              }}
+              className="absolute w-3.5 h-3.5"
+              style={{
+                backgroundColor: p.color,
+                borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+              }}
+            />
+          ))}
         </div>
-        <span style={{ color: '#22c55e', fontSize: 16, fontWeight: 600 }}>Request submitted!</span>
-        <div className="flex gap-2 mt-2">
+
+        {/* Pulsing checkmark badge */}
+        <div className="relative my-2">
+          {/* Pulsing outer rings */}
+          <motion.div
+            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+            className="absolute -inset-4 rounded-full border border-emerald-500/20 pointer-events-none"
+          />
+          <motion.div
+            animate={{ scale: [1, 1.25, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut", delay: 0.25 }}
+            className="absolute -inset-2 rounded-full border border-emerald-400/30 pointer-events-none"
+          />
+
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', damping: 12, stiffness: 120 }}
+            className="w-16 h-16 rounded-full flex items-center justify-center relative z-10"
+            style={{
+              background: 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(5,150,105,0.05) 100%)',
+              border: '1px solid rgba(16,185,129,0.4)',
+              boxShadow: '0 0 15px rgba(16,185,129,0.2), inset 0 0 10px rgba(16,185,129,0.1)',
+            }}
+          >
+            <CheckCircle2 size={32} className="text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]" />
+          </motion.div>
+        </div>
+
+        {/* Text Block */}
+        <div className="space-y-2 z-10">
+          <motion.h2
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="text-base font-bold bg-gradient-to-r from-emerald-400 via-green-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-sm select-none"
+          >
+            Request Submitted! 🎉
+          </motion.h2>
+
+          {submittedId && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.45 }}
+              className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-mono font-semibold"
+              style={{
+                background: 'rgba(15,23,42,0.6)',
+                border: '1px solid rgba(51,65,85,0.6)',
+                color: '#94a3b8',
+              }}
+            >
+              <span className="text-cyan-400 select-none">ID:</span>
+              <motion.span
+                animate={{ color: ['#22d3ee', '#34d399', '#22d3ee'] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                #{submittedId}
+              </motion.span>
+            </motion.div>
+          )}
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.7 }}
+            transition={{ delay: 0.6 }}
+            className="text-[11px] text-slate-400 max-w-[240px] mx-auto mt-1 leading-normal"
+          >
+            Logs and screenshot diagnostics successfully uploaded. AI has routed your request to the backlog.
+          </motion.p>
+        </div>
+
+        {/* Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="flex gap-2.5 mt-2 z-10 w-full max-w-[250px]"
+        >
           {submittedId && (
             <button
               onClick={() => onSwitchToRequests(submittedId)}
-              className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-              style={{ background: 'rgba(6,182,212,0.1)', color: '#22d3ee', border: '1px solid rgba(6,182,212,0.25)' }}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all relative overflow-hidden group"
+              style={{
+                background: 'linear-gradient(135deg, rgba(6,182,212,0.15) 0%, rgba(8,145,178,0.08) 100%)',
+                color: '#22d3ee',
+                border: '1px solid rgba(6,182,212,0.4)',
+                boxShadow: '0 0 8px rgba(6,182,212,0.08)',
+              }}
             >
-              View Request
+              <div className="absolute inset-0 bg-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <span className="relative">View Request</span>
             </button>
           )}
           <button
             onClick={handleReset}
-            className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-            style={{ background: 'rgba(51,65,85,0.4)', color: '#94a3b8', border: '1px solid rgba(51,65,85,0.5)' }}
+            className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all relative overflow-hidden group"
+            style={{
+              background: 'rgba(30,41,59,0.5)',
+              color: '#94a3b8',
+              border: '1px solid rgba(51,65,85,0.6)',
+            }}
           >
-            Submit Another
+            <div className="absolute inset-0 bg-slate-800/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <span className="relative">New Request</span>
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }

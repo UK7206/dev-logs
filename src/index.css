@@ -55,3 +55,67 @@
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted)) transparent;
 }
+
+/* Global animations and transition utilities */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite linear;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.2), 0 0 12px rgba(34, 211, 238, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.6), 0 0 28px rgba(34, 211, 238, 0.3);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s infinite ease-in-out;
+}
+
+/* Custom Selection style */
+::selection {
+  background-color: rgba(34, 211, 238, 0.25);
+  color: #ffffff;
+}
+
+/* Better focus rings */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.page-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+

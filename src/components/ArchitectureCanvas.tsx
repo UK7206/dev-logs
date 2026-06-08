@@ -76,7 +76,7 @@ export default function ArchitectureCanvas() {
   // Fetch DevLogs Requests for the "Bug" node tool
   const { data: requests = [] } = useQuery({
     queryKey: ['requests'],
-    queryFn: fetchRequests
+    queryFn: () => fetchRequests()
   });
 
   // Fetch Whiteboards
@@ -506,7 +506,7 @@ export default function ArchitectureCanvas() {
                       </select>
                       {requests.find((r: any) => r.id === node.content) && (
                         <div className="text-xs text-gray-400 line-clamp-3">
-                          {requests.find((r: any) => r.id === node.content).description.substring(0, 100)}...
+                          {(requests.find((r: any) => r.id === node.content)?.description || '').substring(0, 100)}...
                         </div>
                       )}
                     </div>

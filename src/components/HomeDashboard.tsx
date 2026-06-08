@@ -69,41 +69,69 @@ function StatCard({
   delay?: number;
 }) {
   const animated = useCounter(value);
+  const [hovered, setHovered] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-2xl p-5 relative overflow-hidden"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="rounded-2xl p-6 min-h-[145px] relative overflow-hidden flex flex-col justify-between transition-all duration-300 cursor-pointer"
       style={{
-        background: bgColor,
-        border: `1px solid ${color}22`,
+        background: hovered ? `linear-gradient(135deg, ${bgColor}, ${color}10)` : bgColor,
+        border: `1px solid ${hovered ? color : `${color}22`}`,
+        boxShadow: hovered ? `0 10px 30px -10px ${color}30, 0 1px 1px ${color}50` : '0 4px 30px rgba(0,0,0,0.1)',
         backdropFilter: 'blur(10px)',
+        transform: hovered ? 'translateY(-4px)' : 'none',
       }}
     >
+      {/* Shimmer overlay */}
+      <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-30" />
+
       <div
-        className="absolute inset-0 opacity-5"
+        className="absolute inset-0 opacity-5 transition-opacity duration-300"
         style={{
           background: `radial-gradient(circle at 80% 20%, ${color}, transparent 70%)`,
+          opacity: hovered ? 0.15 : 0.05,
         }}
       />
-      <div className="relative z-10">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-          style={{ background: `${color}18`, border: `1px solid ${color}30` }}
-        >
-          <Icon size={20} style={{ color }} />
+      <div className="relative z-10 flex flex-col h-full justify-between">
+        <div className="flex justify-between items-start">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300"
+            style={{ 
+              background: hovered ? `${color}25` : `${color}18`, 
+              border: `1px solid ${hovered ? color : `${color}30`}`,
+              transform: hovered ? 'scale(1.1) rotate(5deg)' : 'none' 
+            }}
+          >
+            <Icon size={20} style={{ color }} />
+          </div>
+          {hovered && (
+            <motion.span 
+              initial={{ opacity: 0, scale: 0.8 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              className="text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/70"
+            >
+              Active
+            </motion.span>
+          )}
         </div>
-        <div className="text-3xl font-bold tracking-tight mb-1" style={{ color }}>
-          {animated}
-        </div>
-        <div className="text-xs font-medium" style={{ color: '#64748b' }}>
-          {label}
+        
+        <div className="mt-3">
+          <div className="text-3xl font-extrabold tracking-tight mb-0.5" style={{ color }}>
+            {animated}
+          </div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            {label}
+          </div>
         </div>
       </div>
     </motion.div>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // Recent activity item
@@ -178,31 +206,38 @@ function QuickAction({
   onClick: () => void;
   delay?: number;
 }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <motion.button
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay, duration: 0.3 }}
       onClick={onClick}
-      whileHover={{ scale: 1.02, y: -2 }}
+      whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="w-full text-left p-4 rounded-2xl group transition-all"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="w-full text-left p-4 rounded-2xl group transition-all relative overflow-hidden"
       style={{
-        background: 'rgba(15, 23, 42, 0.6)',
-        border: `1px solid rgba(51, 65, 85, 0.4)`,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = `${color}50`;
-        e.currentTarget.style.background = `${color}08`;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = 'rgba(51, 65, 85, 0.4)';
-        e.currentTarget.style.background = 'rgba(15, 23, 42, 0.6)';
+        background: hovered ? `${color}08` : 'rgba(15, 23, 42, 0.6)',
+        border: `1px solid ${hovered ? `${color}40` : 'rgba(51, 65, 85, 0.4)'}`,
+        boxShadow: hovered ? `inset 4px 0 0 ${color}, 0 4px 20px -2px ${color}15` : 'none',
       }}
     >
-      <div className="flex items-center gap-3">
+      {/* Glowing left accent */}
+      {hovered && (
+        <span 
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-r"
+          style={{ 
+            backgroundColor: color, 
+            boxShadow: `0 0 10px ${color}, 0 0 20px ${color}` 
+          }}
+        />
+      )}
+
+      <div className="flex items-center gap-3 relative z-10 pl-1">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110"
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110"
           style={{ background: `${color}18`, border: `1px solid ${color}30` }}
         >
           <Icon size={18} style={{ color }} />
@@ -211,17 +246,26 @@ function QuickAction({
           <div className="font-semibold text-sm" style={{ color: '#e2e8f0' }}>{label}</div>
           <div className="text-xs mt-0.5" style={{ color: '#475569' }}>{description}</div>
         </div>
-        <ChevronRight size={16} className="transition-transform group-hover:translate-x-1" style={{ color: '#334155' }} />
+        <ChevronRight size={16} className="transition-transform duration-300" style={{ color: hovered ? color : '#334155', transform: hovered ? 'translateX(3px)' : 'none' }} />
       </div>
     </motion.button>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // Main Home Dashboard
 // ---------------------------------------------------------------------------
 export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOpenInsight }: HomeDashboardProps) {
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [time, setTime] = useState(new Date());
+
+  // Live clock updates
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const { data: requests = [], refetch } = useQuery({
     queryKey: ['requests-home'],
     queryFn: () => fetchRequests(),
@@ -251,7 +295,21 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
     .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime())
     .slice(0, 6);
 
+  const recentlyResolved = [...requests]
+    .filter((r) => r.status === 'completed')
+    .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime())
+    .slice(0, 3);
+
   const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
+  const totalForPipeline = stats.submitted + stats.in_progress + stats.in_testing + stats.completed;
+  const pctSubmitted = totalForPipeline > 0 ? (stats.submitted / totalForPipeline) * 100 : 0;
+  const pctInProgress = totalForPipeline > 0 ? (stats.in_progress / totalForPipeline) * 100 : 0;
+  const pctTesting = totalForPipeline > 0 ? (stats.in_testing / totalForPipeline) * 100 : 0;
+  const pctCompleted = totalForPipeline > 0 ? (stats.completed / totalForPipeline) * 100 : 0;
+
+  const timeString = time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateString = time.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
     <div className="fixed inset-0 z-[99999] bg-[#030712] text-slate-100 flex flex-col font-sans overflow-hidden">
@@ -280,7 +338,7 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
           className="flex items-center gap-3"
         >
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-xl flex items-center justify-center animate-float"
             style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(139,92,246,0.2))', border: '1px solid rgba(6,182,212,0.3)' }}
           >
             <Bug size={20} style={{ color: '#22d3ee' }} />
@@ -303,7 +361,7 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
             <motion.div
               animate={{ opacity: [1, 0.5, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold animate-glow-pulse"
               style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444' }}
             >
               <AlertTriangle size={12} />
@@ -336,45 +394,81 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
       <div className="relative z-10 flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto px-8 py-8">
           {/* Welcome + completion */}
-          <div className="flex items-start justify-between mb-8">
+          <div className="flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
+              className="flex-1"
             >
-              <h2 className="text-3xl font-bold mb-1" style={{ color: '#f1f5f9' }}>
-                Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'} 👋
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
+                <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-teal-400 to-indigo-400 bg-clip-text text-transparent">
+                  Good {time.getHours() < 12 ? 'morning' : time.getHours() < 17 ? 'afternoon' : 'evening'} 👋
+                </h2>
+                <span className="text-xs font-mono text-slate-400 bg-slate-900/60 px-3 py-1 rounded-lg border border-slate-800/80 self-start sm:self-auto shadow-inner">
+                  {dateString} • {timeString}
+                </span>
+              </div>
               <p className="text-sm" style={{ color: '#64748b' }}>
                 You have <span style={{ color: '#22d3ee', fontWeight: 600 }}>{stats.submitted}</span> pending and{' '}
                 <span style={{ color: '#3b82f6', fontWeight: 600 }}>{stats.in_progress}</span> in progress
               </p>
             </motion.div>
 
-            {/* Completion ring */}
+            {/* Completion ring and pipeline progress */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2, duration: 0.4 }}
-              className="flex flex-col items-center gap-1"
+              className="flex flex-col items-end gap-3 min-w-[240px] w-full md:w-auto"
             >
-              <div className="relative w-16 h-16">
-                <svg width="64" height="64" className="rotate-[-90deg]">
-                  <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(30,41,59,0.8)" strokeWidth="5" />
-                  <circle
-                    cx="32" cy="32" r="26" fill="none"
-                    stroke="#22d3ee" strokeWidth="5"
-                    strokeDasharray={`${2 * Math.PI * 26}`}
-                    strokeDashoffset={`${2 * Math.PI * 26 * (1 - completionRate / 100)}`}
-                    strokeLinecap="round"
-                    style={{ transition: 'stroke-dashoffset 1s ease' }}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-bold" style={{ color: '#22d3ee' }}>{completionRate}%</span>
+              <div className="flex items-center gap-3 self-end">
+                <span className="text-[10px]" style={{ color: '#475569' }}>Completion Velocity</span>
+                <div className="relative w-12 h-12">
+                  <svg width="48" height="48" className="rotate-[-90deg]">
+                    <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(30,41,59,0.8)" strokeWidth="4" />
+                    <circle
+                      cx="24" cy="24" r="20" fill="none"
+                      stroke="#22d3ee" strokeWidth="4"
+                      strokeDasharray={`${2 * Math.PI * 20}`}
+                      strokeDashoffset={`${2 * Math.PI * 20 * (1 - completionRate / 100)}`}
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dashoffset 1s ease' }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold" style={{ color: '#22d3ee' }}>{completionRate}%</span>
+                  </div>
                 </div>
               </div>
-              <span className="text-[10px]" style={{ color: '#475569' }}>Complete</span>
+
+              {/* Segmented Pipeline Progress Bar */}
+              <div className="w-full bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 shadow-inner">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1.5 font-medium">
+                  <span>Pipeline Flow</span>
+                  <span>{totalForPipeline} Items</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                  <div className="bg-[#f59e0b] h-full transition-all duration-500" style={{ width: `${pctSubmitted}%` }} title={`Submitted: ${stats.submitted}`} />
+                  <div className="bg-[#3b82f6] h-full transition-all duration-500" style={{ width: `${pctInProgress}%` }} title={`In Progress: ${stats.in_progress}`} />
+                  <div className="bg-[#a855f7] h-full transition-all duration-500" style={{ width: `${pctTesting}%` }} title={`In Testing: ${stats.in_testing}`} />
+                  <div className="bg-[#22c55e] h-full transition-all duration-500" style={{ width: `${pctCompleted}%` }} title={`Completed: ${stats.completed}`} />
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2">
+                  <span className="text-[9px] flex items-center gap-1 text-slate-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" /> Sub: {stats.submitted}
+                  </span>
+                  <span className="text-[9px] flex items-center gap-1 text-slate-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" /> Prog: {stats.in_progress}
+                  </span>
+                  <span className="text-[9px] flex items-center gap-1 text-slate-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#a855f7]" /> Test: {stats.in_testing}
+                  </span>
+                  <span className="text-[9px] flex items-center gap-1 text-slate-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" /> Done: {stats.completed}
+                  </span>
+                </div>
+              </div>
             </motion.div>
           </div>
 
@@ -394,44 +488,81 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.4 }}
-              className="lg:col-span-3 rounded-2xl p-6"
+              className="lg:col-span-3 rounded-2xl p-6 flex flex-col justify-between"
               style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(10px)' }}
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Activity size={16} style={{ color: '#22d3ee' }} />
-                  <h3 className="font-semibold text-sm" style={{ color: '#e2e8f0' }}>Recent Activity</h3>
-                </div>
-                <button
-                  onClick={onOpenKanban}
-                  className="flex items-center gap-1 text-xs transition-colors"
-                  style={{ color: '#475569' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#475569'; }}
-                >
-                  View Board <ArrowRight size={12} />
-                </button>
-              </div>
-
-              {recent.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 gap-3">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.1)' }}>
-                    <Sparkles size={20} style={{ color: '#22d3ee' }} />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Activity size={16} style={{ color: '#22d3ee' }} />
+                    <h3 className="font-semibold text-sm" style={{ color: '#e2e8f0' }}>Recent Activity</h3>
                   </div>
-                  <p className="text-sm" style={{ color: '#475569' }}>No requests yet. Submit your first!</p>
                   <button
-                    onClick={onOpenPanel}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                    style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#22d3ee' }}
+                    onClick={onOpenKanban}
+                    className="flex items-center gap-1 text-xs transition-colors"
+                    style={{ color: '#475569' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = '#475569'; }}
                   >
-                    <Bug size={14} /> Submit Request
+                    View Board <ArrowRight size={12} />
                   </button>
                 </div>
-              ) : (
-                <div>
-                  {recent.map((req, i) => (
-                    <ActivityItem key={req.id} req={req} delay={0.05 * i} />
-                  ))}
+
+                {recent.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.1)' }}>
+                      <Sparkles size={20} style={{ color: '#22d3ee' }} />
+                    </div>
+                    <p className="text-sm" style={{ color: '#475569' }}>No requests yet. Submit your first!</p>
+                    <button
+                      onClick={onOpenPanel}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#22d3ee' }}
+                    >
+                      <Bug size={14} /> Submit Request
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {recent.map((req, i) => (
+                      <ActivityItem key={req.id} req={req} delay={0.05 * i} />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recently Resolved Section */}
+              {recentlyResolved.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-slate-800/80">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle2 size={14} className="text-green-400 animate-pulse" />
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-green-400">Recently Resolved</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {recentlyResolved.map((req, idx) => (
+                      <motion.div
+                        key={req.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 * idx }}
+                        className="bg-green-950/10 border border-green-500/15 rounded-xl p-3 flex flex-col justify-between hover:border-green-500/40 hover:bg-green-950/20 transition-all duration-300"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] font-mono text-green-500/80">{req.id}</span>
+                            <span className="text-[9px] text-slate-500">
+                              {new Date(req.updated_at || req.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <p className="text-xs font-medium text-slate-200 line-clamp-2">{req.title}</p>
+                        </div>
+                        <div className="mt-2 flex items-center gap-1.5 text-[9px] text-green-400 font-semibold">
+                          <CheckCircle2 size={10} />
+                          <span>Resolved</span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -488,3 +619,4 @@ export default function HomeDashboard({ onClose, onOpenPanel, onOpenKanban, onOp
     </div>
   );
 }
+

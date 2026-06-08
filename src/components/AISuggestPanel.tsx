@@ -111,13 +111,32 @@ export default function AISuggestPanel({
       {(loading || triage || error) && (
         <motion.div
           initial={{ opacity: 0, height: 0, marginTop: 0 }}
-          animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
           exit={{ opacity: 0, height: 0, marginTop: 0 }}
-          transition={{ duration: 0.25 }}
-          className="overflow-hidden rounded-xl"
+          animate={loading ? {
+            opacity: 1,
+            height: 'auto',
+            marginTop: 8,
+            borderColor: ['rgba(6, 182, 212, 0.18)', 'rgba(6, 182, 212, 0.55)', 'rgba(6, 182, 212, 0.18)'],
+            boxShadow: ['rgba(6, 182, 212, 0) 0px 0px 0px', 'rgba(6, 182, 212, 0.12) 0px 0px 10px', 'rgba(6, 182, 212, 0) 0px 0px 0px'],
+          } : {
+            opacity: 1,
+            height: 'auto',
+            marginTop: 8,
+            borderColor: 'rgba(6, 182, 212, 0.18)',
+            boxShadow: 'rgba(0, 0, 0, 0) 0px 0px 0px',
+          }}
+          transition={loading ? {
+            borderColor: { repeat: Infinity, duration: 1.8, ease: "easeInOut" },
+            boxShadow: { repeat: Infinity, duration: 1.8, ease: "easeInOut" },
+            opacity: { duration: 0.25 },
+            height: { duration: 0.25 },
+            marginTop: { duration: 0.25 },
+          } : {
+            duration: 0.25
+          }}
+          className="overflow-hidden rounded-xl border"
           style={{
             background: 'rgba(6, 182, 212, 0.04)',
-            border: '1px solid rgba(6, 182, 212, 0.18)',
           }}
         >
           {/* Header */}
@@ -127,37 +146,56 @@ export default function AISuggestPanel({
           >
             <div className="flex items-center gap-2">
               <div
-                className="w-5 h-5 rounded flex items-center justify-center"
+                className="w-5 h-5 rounded flex items-center justify-center relative overflow-hidden"
                 style={{ background: 'rgba(6, 182, 212, 0.15)' }}
               >
                 {loading ? (
-                  <Loader2 size={11} className="animate-spin" style={{ color: '#22d3ee' }} />
+                  <Loader2 size={11} className="animate-spin text-cyan-400" />
                 ) : (
                   <Brain size={11} style={{ color: '#22d3ee' }} />
                 )}
               </div>
-              <span className="text-[11px] font-semibold" style={{ color: '#22d3ee' }}>
-                {loading ? 'AI Analyzing…' : 'AI Triage Suggestions'}
+              <span className="text-[11px] font-semibold flex items-center gap-0.5" style={{ color: '#22d3ee' }}>
+                {loading ? (
+                  <>
+                    AI Analyzing
+                    <span className="inline-flex gap-0.5 ml-0.5">
+                      <motion.span animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0 }} className="w-1 h-1 rounded-full bg-cyan-400" />
+                      <motion.span animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0.25 }} className="w-1 h-1 rounded-full bg-cyan-400" />
+                      <motion.span animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0.5 }} className="w-1 h-1 rounded-full bg-cyan-400" />
+                    </span>
+                  </>
+                ) : (
+                  'AI Triage Suggestions'
+                )}
               </span>
             </div>
             {triage && !applied && (
-              <button
+              <motion.button
                 onClick={handleApplyAll}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all"
+                whileHover={{ scale: 1.05, y: -0.5 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all relative overflow-hidden group select-none"
                 style={{
-                  background: 'rgba(6, 182, 212, 0.15)',
-                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(8, 145, 178, 0.1) 100%)',
+                  border: '1px solid rgba(6, 182, 212, 0.4)',
                   color: '#22d3ee',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(6, 182, 212, 0.25)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
+                  boxShadow: '0 0 10px rgba(6, 182, 212, 0.08)',
                 }}
               >
-                <Sparkles size={9} /> Apply All
-              </button>
+                <motion.div
+                  className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent -skew-x-12 pointer-events-none"
+                  initial={{ left: '-100%' }}
+                  animate={{ left: '200%' }}
+                  transition={{
+                    repeat: Infinity,
+                    repeatDelay: 3.5,
+                    duration: 1.2,
+                    ease: 'easeInOut',
+                  }}
+                />
+                <Sparkles size={9} className="text-cyan-300" /> Apply All
+              </motion.button>
             )}
             {applied && (
               <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: '#22c55e' }}>
@@ -172,9 +210,24 @@ export default function AISuggestPanel({
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="h-5 rounded animate-pulse"
-                  style={{ background: 'rgba(6, 182, 212, 0.08)', width: `${60 + i * 10}%` }}
-                />
+                  className="h-5 rounded animate-pulse relative overflow-hidden"
+                  style={{
+                    background: 'rgba(6, 182, 212, 0.08)',
+                    border: '1px solid rgba(6, 182, 212, 0.12)',
+                    width: `${60 + i * 10}%`,
+                  }}
+                >
+                  <motion.div
+                    className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -skew-x-12"
+                    initial={{ left: '-100%' }}
+                    animate={{ left: '200%' }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1.5,
+                      ease: 'linear',
+                    }}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -200,14 +253,14 @@ export default function AISuggestPanel({
                   </div>
                   <div className="flex items-start gap-1.5">
                     <p
-                      className="text-[11px] leading-snug flex-1"
-                      style={{ color: '#e2e8f0' }}
+                      className="text-[11px] leading-snug flex-1 animate-float"
+                      style={{ color: '#e2e8f0', animationDuration: '6s' }}
                     >
                       {triage.title}
                     </p>
                     <button
                       onClick={handleCopyTitle}
-                      className="flex-shrink-0 mt-0.5 transition-colors"
+                      className="flex-shrink-0 mt-0.5 transition-colors hover:text-cyan-400"
                       title="Copy title"
                       style={{ color: '#64748b' }}
                     >
@@ -224,13 +277,13 @@ export default function AISuggestPanel({
               {/* Priority */}
               <div className="flex items-center gap-2">
                 <TrendingUp size={11} className="flex-shrink-0" style={{ color: '#64748b' }} />
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap flex-1">
                   <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: '#475569' }}>
                     Priority
                   </span>
                   <button
                     onClick={() => onApply({ priority: triage.priority.priority })}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold capitalize transition-all"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold capitalize transition-all hover:scale-105"
                     style={{
                       background: `${PRIORITY_COLORS[triage.priority.priority]}15`,
                       border: `1px solid ${PRIORITY_COLORS[triage.priority.priority]}40`,
@@ -240,22 +293,45 @@ export default function AISuggestPanel({
                   >
                     {triage.priority.priority}
                   </button>
-                  <span className="text-[9px]" style={{ color: '#475569' }}>
-                    {CONFIDENCE_LABEL(triage.priority.confidence)} · {triage.priority.reason}
+                  <span className="text-[9px] truncate max-w-[150px]" style={{ color: '#475569' }} title={triage.priority.reason}>
+                    {triage.priority.reason}
                   </span>
+
+                  {/* Confidence Bar */}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-[9px] font-semibold" style={{ color: triage.priority.confidence >= 0.8 ? '#22c55e' : triage.priority.confidence >= 0.6 ? '#f59e0b' : '#ef4444' }}>
+                      {triage.priority.confidence >= 0.8 ? 'High' : triage.priority.confidence >= 0.6 ? 'Medium' : 'Low'}
+                    </span>
+                    <div className="flex gap-0.5 w-10">
+                      {[...Array(5)].map((_, idx) => {
+                        const step = (idx + 1) / 5;
+                        const active = triage.priority.confidence >= step;
+                        const activeColor = triage.priority.confidence >= 0.8 ? '#22c55e' : triage.priority.confidence >= 0.6 ? '#f59e0b' : '#ef4444';
+                        return (
+                          <div
+                            key={idx}
+                            className="h-1 flex-1 rounded-sm transition-all duration-300"
+                            style={{
+                              background: active ? activeColor : 'rgba(255,255,255,0.06)',
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Category */}
               <div className="flex items-center gap-2">
                 <ChevronRight size={11} className="flex-shrink-0" style={{ color: '#64748b' }} />
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap flex-1">
                   <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: '#475569' }}>
                     Category
                   </span>
                   <button
                     onClick={() => onApply({ category: triage.category.category })}
-                    className="px-2 py-0.5 rounded-md text-[10px] font-medium capitalize transition-all"
+                    className="px-2 py-0.5 rounded-md text-[10px] font-medium capitalize transition-all hover:scale-105"
                     style={{
                       background: 'rgba(168, 85, 247, 0.12)',
                       border: '1px solid rgba(168, 85, 247, 0.3)',
@@ -265,9 +341,29 @@ export default function AISuggestPanel({
                   >
                     {triage.category.category}
                   </button>
-                  <span className="text-[9px]" style={{ color: '#475569' }}>
-                    {Math.round(triage.category.confidence * 100)}% match
-                  </span>
+
+                  {/* Confidence Bar */}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-[9px] font-semibold" style={{ color: triage.category.confidence >= 0.8 ? '#22c55e' : triage.category.confidence >= 0.6 ? '#f59e0b' : '#ef4444' }}>
+                      {Math.round(triage.category.confidence * 100)}%
+                    </span>
+                    <div className="flex gap-0.5 w-10">
+                      {[...Array(5)].map((_, idx) => {
+                        const step = (idx + 1) / 5;
+                        const active = triage.category.confidence >= step;
+                        const activeColor = triage.category.confidence >= 0.8 ? '#22c55e' : triage.category.confidence >= 0.6 ? '#f59e0b' : '#ef4444';
+                        return (
+                          <div
+                            key={idx}
+                            className="h-1 flex-1 rounded-sm transition-all duration-300"
+                            style={{
+                              background: active ? activeColor : 'rgba(255,255,255,0.06)',
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -283,7 +379,7 @@ export default function AISuggestPanel({
                       <button
                         key={tag}
                         onClick={() => onApply({ tags: [tag] })}
-                        className="text-[10px] px-2 py-0.5 rounded-full transition-all"
+                        className="text-[10px] px-2 py-0.5 rounded-full transition-all hover:scale-105"
                         style={{
                           background: 'rgba(6, 182, 212, 0.08)',
                           border: '1px solid rgba(6, 182, 212, 0.2)',
